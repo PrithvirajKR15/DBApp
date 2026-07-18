@@ -12,7 +12,7 @@ class LoginBasic extends Controller
   public function index()
   {
     if (Auth::check()) {
-      return redirect()->route('dashboard-analytics');
+      return redirect()->route('dashboard');
     }
     return view('content.authentications.auth-login-basic');
   }
@@ -39,7 +39,7 @@ class LoginBasic extends Controller
     if (Auth::attempt($credentials, $remember)) {
       $request->session()->regenerate();
 
-      return redirect()->intended(route('dashboard-analytics'))
+      return redirect()->intended(route('dashboard'))
         ->with('success', 'Logged in successfully!');
     }
 

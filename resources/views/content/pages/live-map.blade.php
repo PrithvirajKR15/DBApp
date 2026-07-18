@@ -361,19 +361,19 @@ $container = 'container-fluid';
             <div class="row g-2 px-3 my-3">
                 <div class="col-4">
                     <div class="border rounded text-center py-2 px-1" style="background-color: #fff; border-color: #e0e2e7 !important; border-radius: 8px !important;">
-                        <h4 class="mb-0 fw-bold text-body" style="font-size: 1.2rem;">28</h4>
+                        <h4 class="mb-0 fw-bold text-body" style="font-size: 1.2rem;">{{ $stats['transit'] }}</h4>
                         <div class="text-muted" style="font-size: 0.72rem; font-weight: 500;">In Transit</div>
                     </div>
                 </div>
                 <div class="col-4">
                     <div class="border rounded text-center py-2 px-1" style="background-color: #fff; border-color: #e0e2e7 !important; border-radius: 8px !important;">
-                        <h4 class="mb-0 fw-bold text-success" style="font-size: 1.2rem;">14</h4>
+                        <h4 class="mb-0 fw-bold text-success" style="font-size: 1.2rem;">{{ $stats['idle'] }}</h4>
                         <div class="text-muted" style="font-size: 0.72rem; font-weight: 500;">Idle</div>
                     </div>
                 </div>
                 <div class="col-4">
                     <div class="border rounded text-center py-2 px-1" style="background-color: #fff; border-color: #e0e2e7 !important; border-radius: 8px !important;">
-                        <h4 class="mb-0 fw-bold text-secondary" style="font-size: 1.2rem;">6</h4>
+                        <h4 class="mb-0 fw-bold text-secondary" style="font-size: 1.2rem;">{{ $stats['offline'] }}</h4>
                         <div class="text-muted" style="font-size: 0.72rem; font-weight: 500;">Offline</div>
                     </div>
                 </div>
@@ -394,7 +394,7 @@ $container = 'container-fluid';
 
             <!-- Sidebar Footer -->
             <div class="mt-auto border-top px-3 py-2 bg-transparent d-flex justify-content-between align-items-center" style="font-size: 0.75rem; border-color: #e0e2e7 !important; min-height: 44px;">
-                <span class="text-muted" id="showing-drivers-text">Showing 7 of 48 drivers</span>
+                <span class="text-muted" id="showing-drivers-text">Showing {{ $stats['total'] }} of {{ $stats['total'] }} drivers</span>
                 <a href="javascript:void(0);" style="color: #ff7a00; font-weight: 600;">View All</a>
             </div>
         </div>
@@ -461,19 +461,19 @@ $container = 'container-fluid';
                 <div class="d-flex flex-column gap-2" style="font-size: 0.75rem;">
                     <div class="d-flex align-items-center justify-content-between">
                         <span class="text-muted">Active Drivers</span>
-                        <span class="fw-bold text-body" style="font-size: 0.82rem;">42</span>
+                        <span class="fw-bold text-body" style="font-size: 0.82rem;">{{ $stats['active'] }}</span>
                     </div>
                     <div class="d-flex align-items-center justify-content-between">
                         <span class="text-muted">In Transit</span>
-                        <span class="fw-bold text-primary" style="font-size: 0.82rem; color: #696cff !important;">28</span>
+                        <span class="fw-bold text-primary" style="font-size: 0.82rem; color: #696cff !important;">{{ $stats['transit'] }}</span>
                     </div>
                     <div class="d-flex align-items-center justify-content-between">
                         <span class="text-muted">Orders Today</span>
-                        <span class="fw-bold text-body" style="font-size: 0.82rem;">1,248</span>
+                        <span class="fw-bold text-body" style="font-size: 0.82rem;">{{ number_format($stats['orders_today']) }}</span>
                     </div>
                     <div class="d-flex align-items-center justify-content-between">
                         <span class="text-muted">Avg. ETA</span>
-                        <span class="fw-bold" style="font-size: 0.82rem; color: #ff7a00;">14 min</span>
+                        <span class="fw-bold" style="font-size: 0.82rem; color: #ff7a00;">{{ $stats['avg_eta'] }} min</span>
                     </div>
                 </div>
             </div>
@@ -515,117 +515,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }).addTo(map);
     deliveryZone.bindPopup('<strong>Manhattan Core Delivery Zone</strong><br>Delivery restrictions may apply.');
 
-    // Driver Data Source
-    const drivers = [
-        {
-            id: 1,
-            name: "Mike Johnson",
-            status: "Transit",
-            zone: "manhattan",
-            orderId: "#ORD-8924",
-            distance: "2.4 km away",
-            distanceNum: "2.4",
-            eta: "12 mins",
-            speed: "32 km/h",
-            speedNum: "32",
-            avatar: "5.png",
-            lat: 40.7128,
-            lng: -74.0060,
-            destination: "123 Main St",
-            rating: "4.8",
-            statusClass: "transit"
-        },
-        {
-            id: 2,
-            name: "Sarah Connor",
-            status: "Transit",
-            zone: "manhattan",
-            orderId: "#ORD-8925",
-            distance: "1.1 km away",
-            distanceNum: "1.1",
-            eta: "5 mins",
-            speed: "28 km/h",
-            speedNum: "28",
-            avatar: "6.png",
-            lat: 40.7250,
-            lng: -74.0150,
-            destination: "789 Broadway St",
-            rating: "4.9",
-            statusClass: "transit"
-        },
-        {
-            id: 3,
-            name: "David Smith",
-            status: "Transit",
-            zone: "manhattan",
-            orderId: "#ORD-8930",
-            distance: "3.7 km away",
-            distanceNum: "3.7",
-            eta: "20 mins",
-            speed: "40 km/h",
-            speedNum: "40",
-            avatar: "7.png",
-            lat: 40.7050,
-            lng: -73.9960,
-            destination: "456 Elm St",
-            rating: "4.5",
-            statusClass: "transit"
-        },
-        {
-            id: 4,
-            name: "Emily Rodriguez",
-            status: "Idle",
-            zone: "manhattan",
-            details: "Available &middot; Downtown Zone",
-            avatar: "2.png",
-            lat: 40.7180,
-            lng: -74.0010,
-            rating: "4.9",
-            statusClass: "idle"
-        },
-        {
-            id: 5,
-            name: "James Park",
-            status: "Idle",
-            zone: "manhattan",
-            details: "Available &middot; Northwest District",
-            avatar: "3.png",
-            lat: 40.7290,
-            lng: -73.9890,
-            rating: "4.7",
-            statusClass: "idle"
-        },
-        {
-            id: 6,
-            name: "Carlos Mendes",
-            status: "Transit",
-            zone: "manhattan",
-            orderId: "#ORD-8932",
-            distance: "0.8 km away",
-            distanceNum: "0.8",
-            eta: "3 mins",
-            speed: "22 km/h",
-            speedNum: "22",
-            avatar: "4.png",
-            lat: 40.7110,
-            lng: -74.0130,
-            destination: "101 Pine St",
-            rating: "4.6",
-            statusClass: "transit"
-        },
-        {
-            id: 7,
-            name: "Lisa Chen",
-            status: "Offline",
-            zone: "brooklyn",
-            details: "Last seen 45 mins ago",
-            avatar: "1.png",
-            lat: 40.7200,
-            lng: -73.9750,
-            rating: "4.4",
-            statusClass: "offline"
-        }
-    ];
+    // Driver Data Source (fetched from the database via LiveMapController)
+    const drivers = @json($drivers);
 
     const markers = {};
 
@@ -665,7 +556,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="d-flex align-items-center">
                         <div class="driver-avatar-wrapper me-3">
-                            <img src="{{ asset('assets/img/avatars') }}/${d.avatar}" alt="${d.name}">
+                            <img src="{{ asset('assets/img/avatars') }}/${d.image}" alt="${d.name}">
                             <span class="status-indicator ${d.status.toLowerCase()}"></span>
                         </div>
                         <div>
@@ -692,7 +583,7 @@ document.addEventListener('DOMContentLoaded', function () {
             className: 'custom-marker-container',
             html: `
                 <div class="custom-marker ${d.status.toLowerCase()}">
-                    <img src="{{ asset('assets/img/avatars') }}/${d.avatar}" alt="${d.name}">
+                    <img src="{{ asset('assets/img/avatars') }}/${d.image}" alt="${d.name}">
                     <span class="marker-status-dot"></span>
                 </div>
             `,
@@ -839,7 +730,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <button class="profile-card-close-btn" id="close-profile-card-btn">&times;</button>
             <div class="d-flex align-items-center mb-3">
                 <div class="driver-avatar-wrapper me-3">
-                    <img src="{{ asset('assets/img/avatars') }}/${driver.avatar}" alt="${driver.name}">
+                    <img src="{{ asset('assets/img/avatars') }}/${driver.image}" alt="${driver.name}">
                     <span class="status-indicator ${driver.status.toLowerCase()}"></span>
                 </div>
                 <div>
@@ -907,31 +798,23 @@ document.addEventListener('DOMContentLoaded', function () {
     const driverParam = urlParams.get('driver');
     const orderParam = urlParams.get('order');
 
+    const defaultDriverId = drivers.length ? drivers[0].id : null;
+
     if (driverParam) {
         const found = drivers.find(d => d.name.toLowerCase() === driverParam.toLowerCase());
-        if (found) {
-            setTimeout(() => {
-                selectDriver(found.id);
-            }, 600);
-        } else {
-            setTimeout(() => {
-                selectDriver(1);
-            }, 400);
-        }
+        setTimeout(() => {
+            if (found) selectDriver(found.id);
+            else if (defaultDriverId !== null) selectDriver(defaultDriverId);
+        }, found ? 600 : 400);
     } else if (orderParam) {
         const found = drivers.find(d => d.orderId && d.orderId.toLowerCase() === orderParam.toLowerCase());
-        if (found) {
-            setTimeout(() => {
-                selectDriver(found.id);
-            }, 600);
-        } else {
-            setTimeout(() => {
-                selectDriver(1);
-            }, 400);
-        }
-    } else {
         setTimeout(() => {
-            selectDriver(1);
+            if (found) selectDriver(found.id);
+            else if (defaultDriverId !== null) selectDriver(defaultDriverId);
+        }, found ? 600 : 400);
+    } else if (defaultDriverId !== null) {
+        setTimeout(() => {
+            selectDriver(defaultDriverId);
         }, 400);
     }
 

@@ -4,6 +4,9 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -22,7 +25,13 @@ class User extends Authenticatable
         'mobile',
         'email',
         'password',
-        'role',
+        'role_id',
+        'code',
+        'status',
+        'image',
+        'dob',
+        'gender',
+        'address',
     ];
 
     /**
@@ -36,6 +45,13 @@ class User extends Authenticatable
     ];
 
     /**
+     * Always load the role with the user; auth checks need it on every request.
+     *
+     * @var list<string>
+     */
+    protected $with = ['role'];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -45,22 +61,51 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'dob' => 'date',
         ];
     }
 
-    /**
-     * Check if user has admin role.
-     */
-    public function isAdmin(): bool
+    public function role(): BelongsTo
     {
-        return $this->role === 'admin';
+        return $this->belongsTo(Role::class);
     }
 
     /**
-     * Check if user has user role.
+     * Driver profile for users who deliver via the mobile app.
      */
+    public function driver(): HasOne
+    {
+        return $this->hasOne(Driver::class);
+    }
+
+    /**
+     * Stores administered by this user (store admins).
+     */
+    public function stores(): HasMany
+    {
+        return $this->hasMany(Store::class);
+    }
+
+    /**
+     * Check if user has any of the given role slugs.
+     */
+    public function hasRole(string ...$slugs): bool
+    {
+        return in_array($this->role?->slug, $slugs, true);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin');
+    }
+
+    public function isStoreAdmin(): bool
+    {
+        return $this->hasRole('store_admin');
+    }
+
     public function isUser(): bool
     {
-        return $this->role === 'user';
+        return $this->hasRole('user');
     }
 }

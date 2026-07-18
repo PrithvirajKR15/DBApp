@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -14,13 +15,24 @@ class DatabaseSeeder extends Seeder
    */
   public function run(): void
   {
+    $this->call(RoleSeeder::class);
+
     User::updateOrCreate([
         'email' => 'admin@kenland.in',
     ], [
         'name' => 'Admin User',
         'mobile' => '9876543210',
         'password' => Hash::make('password@123'),
-        'role' => 'admin',
+        'role_id' => Role::findBySlug('admin')->id,
+    ]);
+
+    User::updateOrCreate([
+        'email' => 'storeadmin@kenland.in',
+    ], [
+        'name' => 'Store Admin User',
+        'mobile' => '9123456780',
+        'password' => Hash::make('password@123'),
+        'role_id' => Role::findBySlug('store_admin')->id,
     ]);
 
     User::updateOrCreate([
@@ -29,7 +41,14 @@ class DatabaseSeeder extends Seeder
         'name' => 'Regular User',
         'mobile' => '1234567890',
         'password' => Hash::make('password@123'),
-        'role' => 'user',
+        'role_id' => Role::findBySlug('user')->id,
+    ]);
+
+    $this->call([
+        StoreSeeder::class,
+        ZoneSeeder::class,
+        DriverSeeder::class,
+        OrderSeeder::class,
     ]);
   }
 }

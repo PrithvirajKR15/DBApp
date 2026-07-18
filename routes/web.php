@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\authentications\LoginBasic;
 use App\Http\Controllers\authentications\RegisterBasic;
 use App\Http\Controllers\authentications\ForgotPasswordBasic;
+use App\Http\Controllers\dashboard\DashboardController;
+use App\Http\Controllers\pages\LiveMapController;
 
 // Guest authentication routes
 Route::middleware('guest')->group(function () {
@@ -25,14 +27,26 @@ Route::middleware('auth')->group(function () {
     Route::post('/auth/logout', [LoginBasic::class, 'logout'])->name('logout');
     Route::get('/auth/logout', [LoginBasic::class, 'logout'])->name('auth-logout');
 
-    // Deliverease Pages
-    Route::get('/', function () {
-        return view('content.dashboard.dashboards-analytics');
-    })->name('dashboard-analytics');
+    // Post-login entry point: redirects each role to its own dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    Route::get('/live-map', function () {
-        return view('content.pages.live-map');
-    })->name('live-map');
+    // Admin dashboard: non-admins are redirected to their own home page
+    Route::get('/', [DashboardController::class, 'admin'])->name('dashboard-analytics');
+});
+
+// Store Admin routes
+Route::middleware(['auth', 'role:store_admin'])->group(function () {
+    Route::get('/store/dashboard', [DashboardController::class, 'storeAdmin'])->name('store-dashboard');
+});
+
+// User routes
+Route::middleware(['auth', 'role:user'])->group(function () {
+    Route::get('/user/dashboard', [DashboardController::class, 'user'])->name('user-dashboard');
+});
+
+// Admin-only pages (Deliverease admin panel)
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/live-map', [LiveMapController::class, 'index'])->name('live-map');
 
     Route::get('/fleet/drivers/store', function () {
         return view('content.pages.drivers', ['driverType' => 'store']);

@@ -18,7 +18,15 @@ return new class extends Migration
             $table->string('email')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->string('role')->default('user'); // 'admin' or 'user'
+            $table->foreignId('role_id')->constrained('roles');
+            // A staff/driver code (e.g. DRV-4429) and account status live on the user.
+            $table->string('code')->nullable()->unique();
+            $table->string('status')->default('Active');
+            // Shared personal profile fields (used by drivers who log in via the mobile app)
+            $table->string('image')->nullable();
+            $table->date('dob')->nullable();
+            $table->string('gender')->nullable();
+            $table->string('address')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
