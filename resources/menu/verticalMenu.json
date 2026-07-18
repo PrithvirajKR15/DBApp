@@ -1,0 +1,101 @@
+{
+  "menu": [
+    {
+      "menuHeader": "OVERVIEW"
+    },
+    {
+      "url": "/",
+      "name": "Dashboard",
+      "icon": "menu-icon icon-base bx bx-grid-alt",
+      "slug": "dashboard-analytics"
+    },
+    {
+      "url": "/live-map",
+      "name": "Live Map",
+      "icon": "menu-icon icon-base bx bx-map",
+      "slug": "live-map"
+    },
+    {
+      "menuHeader": "FLEET MANAGEMENT"
+    },
+    {
+      "name": "Drivers",
+      "icon": "menu-icon icon-base bx bx-group",
+      "slug": "fleet-drivers",
+      "submenu": [
+        {
+          "url": "/fleet/drivers/store",
+          "name": "Store Drivers",
+          "slug": "fleet-drivers-store"
+        },
+        {
+          "url": "/fleet/drivers/zone",
+          "name": "Zone-wise Drivers",
+          "slug": "fleet-drivers-zone"
+        }
+      ]
+    },
+    {
+      "url": "/fleet/approvals",
+      "name": "Approvals",
+      "icon": "menu-icon icon-base bx bx-check-shield",
+      "slug": "fleet-approvals",
+      "badge": [
+        "danger",
+        "12"
+      ]
+    },
+    {
+      "menuHeader": "OPERATIONS"
+    },
+    {
+      "name": "Orders & Delivery",
+      "icon": "menu-icon icon-base bx bx-package",
+      "slug": ["operations-orders"],
+      "submenu": [
+        {
+          "url": "/operations/orders",
+          "name": "Orders",
+          "slug": "operations-orders"
+        },
+        {
+          "url": "/operations/delivery-batches",
+          "name": "Delivery Batches",
+          "slug": "operations-orders-batches"
+        }
+      ]
+    },
+    {
+      "name": "Earnings & Payouts",
+      "icon": "menu-icon icon-base bx bx-wallet",
+      "slug": ["operations-earnings", "operations-payouts"],
+      "submenu": [
+        {
+          "url": "/operations/earnings",
+          "name": "Earnings",
+          "slug": "operations-earnings"
+        },
+        {
+          "url": "/operations/payouts",
+          "name": "Payouts",
+          "slug": "operations-payouts"
+        }
+      ]
+    },
+    {
+      "menuHeader": "SYSTEM"
+    },
+    {
+      "url": "/system/analytics",
+      "name": "Analytics",
+      "icon": "menu-icon icon-base bx bx-bar-chart-alt-2",
+      "slug": "system-analytics"
+    },
+    {
+      "url": "/system/settings",
+      "name": "Settings",
+      "icon": "menu-icon icon-base bx bx-cog",
+      "slug": "system-settings"
+    }
+  ]
+}

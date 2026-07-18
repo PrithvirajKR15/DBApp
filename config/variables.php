@@ -1,0 +1,31 @@
+<?php
+// Variables
+return [
+  "creatorName" => "Kenland IT Solutions",
+  "creatorUrl" => "https://www.kenland.in/",
+  "templateName" => "Deliverease",
+  "templateSuffix" => "Deliverease Dashboard",
+  "templateVersion" => "1.0.0",
+  "templateFree" => true,
+  "templateDescription" => "Most Powerful & Comprehensive Bootstrap 5 + Laravel HTML Admin Dashboard Template built for developers!",
+  "templateKeyword" => "dashboard, bootstrap 5 dashboard, bootstrap 5 design, bootstrap 5",
+  "licenseUrl" => "https://www.kenland.in/",
+  "livePreview" => "https://demos.themeselection.com/sneat-bootstrap-html-laravel-admin-template-free/demo/",
+  "productPage" => "https://www.kenland.in/",
+  "support" => "https://www.kenland.in/",
+  "adminTemplates" => "https://www.kenland.in/",
+  "bootstrapDashboard" => "https://www.kenland.in/",
+  "ogTitle" => "Deliverease Dashboard by Kenland IT Solutions",
+  "ogImage" => "https://ts-assets.b-cdn.net/ts-assets/sneat/sneat-bootstrap-laravel-admin-template-free/marketing/sneat-bootstrap-laravel-admin-template-free-smm.png",
+  "ogType" => "product",
+  "documentation" => "https://www.kenland.in/",
+  "repository" => "https://www.kenland.in/",
+  "gitRepo" => "https://www.kenland.in/",
+  "gitRepoAccess" => "https://www.kenland.in/",
+  "githubFreeUrl" => "https://www.kenland.in/",
+  "facebookUrl" => "https://www.kenland.in/",
+  "twitterUrl" => "https://x.com/Theme_Selection",
+  "githubUrl" => "https://github.com/themeselection",
+  "dribbbleUrl" => "https://dribbble.com/themeselection",
+  "instagramUrl" => "https://www.instagram.com/themeselection/"
+];
