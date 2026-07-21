@@ -48,6 +48,9 @@ class DatabaseSeeder extends Seeder
         ZoneSeeder::class,
         DriverSeeder::class,
         OrderSeeder::class,
+        BatchSeeder::class,
+        PayoutSeeder::class,
+        EarningsSeeder::class,
     ]);
   }
 }

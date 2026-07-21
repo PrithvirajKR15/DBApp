@@ -18,14 +18,11 @@ class ZoneDriverController extends Controller
 
     public function index()
     {
-        $drivers = $this->driverService->listZoneDrivers()->values()->all();
         $zones = Zone::orderBy('name')->get(['id', 'code', 'name']);
 
         return view('content.pages.drivers', [
             'driverType' => 'zone',
-            'drivers' => $drivers,
             'zones' => $zones,
-            'useDatabase' => true,
         ]);
     }
 

@@ -1,71 +1,16 @@
 @php
 $isNavbar = true;
-$ordersData = include resource_path('views/content/pages/orders-data.php');
-$orders = $ordersData['orders'];
-
-$order = collect($orders)->first(function ($o) use ($orderId) {
+$ordersData = $ordersData ?? ['orders' => [], 'nearby_drivers' => []];
+$orders = $ordersData['orders'] ?? [];
+$order = $order ?? collect($orders)->first(function ($o) use ($orderId) {
     return strcasecmp($o['id'], $orderId) === 0 || strcasecmp($o['id'], urldecode($orderId)) === 0;
 });
+$order = $order ?? ($orders[0] ?? null);
+abort_unless($order, 404);
 
-// Resolve orders that live in delivery batches but not in the main orders list
-if (!$order) {
-    $batchesData = include resource_path('views/content/pages/batches-data.php');
-    $decodedId = urldecode($orderId);
-    foreach ($batchesData['batches'] as $batch) {
-        foreach ($batch['orders'] as $batchOrder) {
-            if (strcasecmp($batchOrder['id'], $orderId) === 0 || strcasecmp($batchOrder['id'], $decodedId) === 0) {
-                $deliveryMap = [
-                    'Waiting' => 'waiting',
-                    'Accepted' => 'accepted',
-                    'Assigned' => 'assigned',
-                    'Out Delivery' => 'out',
-                    'Delivered' => 'delivered',
-                    'Ready' => 'ready',
-                    'Packing' => 'packing',
-                ];
-                $paymentMap = [
-                    'Paid' => 'online',
-                    'COD' => 'cod',
-                    'Apple Pay' => 'apple',
-                ];
-                $prepMap = [
-                    'Ready' => 'ready',
-                    'Packing' => 'packing',
-                    'Not Started' => 'not_started',
-                ];
-                $deliveryLabel = $batchOrder['delivery'] ?? ($batch['status'] === 'completed' ? 'Delivered' : 'Waiting');
-                $order = [
-                    'id' => $batchOrder['id'],
-                    'placed_at' => $batchOrder['delivered_at'] ?? '09:00 AM',
-                    'customer' => $batchOrder['customer'],
-                    'phone' => '+1 555-0100',
-                    'area' => explode(',', $batch['zone'])[0] ?? $batch['zone'],
-                    'address' => preg_replace('/\s*[—-].*$/u', '', $batchOrder['address']),
-                    'store' => $batch['store'],
-                    'store_id' => $batch['zone_key'] ?? 'downtown',
-                    'slot' => '10:00–12:00',
-                    'slot_label' => 'Today',
-                    'urgent' => false,
-                    'value' => $batchOrder['value'],
-                    'items' => 6,
-                    'payment' => $paymentMap[$batchOrder['payment'] ?? ''] ?? 'online',
-                    'prep' => $prepMap[$batchOrder['prep'] ?? ''] ?? 'ready',
-                    'prep_pct' => 100,
-                    'delivery' => $deliveryMap[$deliveryLabel] ?? 'waiting',
-                    'driver' => $batch['driver'] ?? null,
-                    'view' => [],
-                    'batch_id' => $batch['id'],
-                ];
-                break 2;
-            }
-        }
-    }
-}
-
-$order = $order ?? $orders[0];
 $fromBatch = !empty($order['batch_id']) || request()->query('from') === 'batch';
 
-$nearbyDrivers = array_values(array_filter($ordersData['nearby_drivers'], function ($driver) use ($order) {
+$nearbyDrivers = array_values(array_filter($ordersData['nearby_drivers'] ?? [], function ($driver) use ($order) {
     return ($driver['type'] ?? '') === 'store'
         && ($driver['store_id'] ?? '') === ($order['store_id'] ?? '');
 }));

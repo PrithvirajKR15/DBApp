@@ -30,7 +30,7 @@ class DriverSeeder extends Seeder
         $this->usedMobiles = User::pluck('mobile')->flip()->map(fn () => true)->all();
 
         // 1) Fleet / roster drivers migrated from the old static data file.
-        $fleet = include resource_path('views/content/pages/drivers-data.php');
+        $fleet = include database_path('seeders/data/fleet_drivers.php');
 
         foreach ($fleet as $d) {
             $rating = ($d['rating'] ?? '—') === '—' ? null : (float) $d['rating'];

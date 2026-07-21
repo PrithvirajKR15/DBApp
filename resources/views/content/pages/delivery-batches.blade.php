@@ -1,8 +1,8 @@
 @php
 $isNavbar = false;
-$data = include resource_path('views/content/pages/batches-data.php');
-$batches = $data['batches'];
-$batchDrivers = $data['drivers'];
+$data = $data ?? [];
+$batches = $data['batches'] ?? [];
+$batchDrivers = $data['drivers'] ?? [];
 $pendingCount = count(array_filter($batches, fn ($b) => $b['status'] === 'pending'));
 $acceptedCount = count(array_filter($batches, fn ($b) => $b['status'] === 'accepted'));
 $assignedCount = count(array_filter($batches, fn ($b) => $b['status'] === 'assigned'));
@@ -22,7 +22,7 @@ $deliveryChipClass = [
     'Out Delivery' => 'chip-out',
     'Delivered' => 'chip-completed',
 ];
-$storeById = collect($data['stores'])->keyBy('id');
+$storeById = collect($data['stores'] ?? [])->keyBy('id');
 foreach ($batches as &$batch) {
     if (empty($batch['hub']) && !empty($batch['store_id']) && isset($storeById[$batch['store_id']])) {
         $s = $storeById[$batch['store_id']];

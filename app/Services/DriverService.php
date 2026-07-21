@@ -206,6 +206,28 @@ class DriverService
             ->firstOrFail();
     }
 
+    public function findDriverByCode(string $code): Driver
+    {
+        return Driver::query()
+            ->whereHas('user', fn ($q) => $q->where('code', $code))
+            ->with(['user', 'activeAssignment.store', 'activeAssignment.zone', 'orders'])
+            ->firstOrFail();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function shapeDriver(Driver $driver): array
+    {
+        $type = $driver->activeAssignment?->type;
+
+        if ($type === 'zone') {
+            return $this->shapeZoneDriver($driver);
+        }
+
+        return $this->shapeStoreDriver($driver);
+    }
+
     /**
      * @return array<string, mixed>
      */

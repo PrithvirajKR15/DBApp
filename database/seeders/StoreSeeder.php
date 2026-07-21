@@ -23,6 +23,8 @@ class StoreSeeder extends Seeder
             ['code' => 'uptown',   'name' => 'Uptown Express',        'area' => 'North Zone',   'address' => '71 Pine Court, North',   'phone' => '+1 555-0301', 'lat' => 40.7295, 'lng' => -73.9965],
             ['code' => 'westside', 'name' => 'Westside Grocer',       'area' => 'West Zone',    'address' => '15 Harbor Rd, Westside', 'phone' => '+1 555-0302', 'lat' => 40.7180, 'lng' => -74.0150],
             ['code' => 'harbor',   'name' => 'Harbor Market',         'area' => 'South Zone',   'address' => '402 Oak Lane, South',    'phone' => '+1 555-0303', 'lat' => 40.7050, 'lng' => -74.0020],
+            ['code' => 'eastside', 'name' => 'Eastside Fresh Hub',    'area' => 'East Zone',    'address' => 'Technopark Rd, East End', 'phone' => '+1 555-0308', 'lat' => 8.5156, 'lng' => 76.9780],
+            ['code' => 'central',  'name' => 'Central City Branch',   'area' => 'Central Zone', 'address' => 'Central Plaza',           'phone' => '+1 555-0309', 'lat' => 8.5100, 'lng' => 76.9550],
             ['code' => 'amanora',  'name' => 'Amanora Mall Store',    'area' => 'East Zone',    'address' => 'Amanora Town Centre, Pune, MH', 'phone' => '+91 20 5550 0304', 'lat' => 18.5169, 'lng' => 73.9350],
             ['code' => 'mgroad',   'name' => 'MG Road Express',       'area' => 'Central Zone', 'address' => 'MG Road, Bengaluru, KA',        'phone' => '+91 80 5550 0305', 'lat' => 12.9757, 'lng' => 77.6068],
             ['code' => 'baner',    'name' => 'Baner Delivery Hub',    'area' => 'West Zone',    'address' => 'Baner Road, Pune, MH',          'phone' => '+91 20 5550 0306', 'lat' => 18.5590, 'lng' => 73.7868],

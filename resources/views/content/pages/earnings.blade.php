@@ -4,10 +4,10 @@
 @section('page-title', 'Earnings')
 
 @php
-    $data = include resource_path('views/content/pages/earnings-data.php');
-    $metrics = $data['metrics'];
-    $orderEarnings = $data['order_earnings'];
-    $transactions = $data['transactions'];
+    $data = $data ?? [];
+    $metrics = $data['metrics'] ?? [];
+    $orderEarnings = $data['order_earnings'] ?? [];
+    $transactions = $data['transactions'] ?? [];
 
     $typeLabels = [
         'order_sale' => 'Order Sale',

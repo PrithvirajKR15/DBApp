@@ -29,6 +29,9 @@ class Order extends Model
         'distance_km',
         'lat',
         'lng',
+        'views',
+        'locality',
+        'zone_key',
     ];
 
     protected function casts(): array
@@ -39,6 +42,7 @@ class Order extends Model
             'distance_km' => 'float',
             'lat' => 'float',
             'lng' => 'float',
+            'views' => 'array',
         ];
     }
 

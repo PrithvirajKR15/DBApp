@@ -1,12 +1,12 @@
 @php
 $isNavbar = false;
-$ordersData = include resource_path('views/content/pages/orders-data.php');
-$metrics = $ordersData['metrics'];
-$stores = $ordersData['stores'];
-$areas = $ordersData['areas'];
-$slots = $ordersData['slots'];
-$orders = $ordersData['orders'];
-$nearbyDrivers = $ordersData['nearby_drivers'];
+$ordersData = $ordersData ?? [];
+$metrics = $ordersData['metrics'] ?? [];
+$stores = $ordersData['stores'] ?? [];
+$areas = $ordersData['areas'] ?? [];
+$slots = $ordersData['slots'] ?? [];
+$orders = $ordersData['orders'] ?? [];
+$nearbyDrivers = $ordersData['nearby_drivers'] ?? [];
 
 $deliveryLabels = [
     'new' => 'New',

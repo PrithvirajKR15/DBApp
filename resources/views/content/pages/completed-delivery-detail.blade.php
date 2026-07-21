@@ -1,20 +1,19 @@
 @php
 $isNavbar = true;
-$ordersData = include resource_path('views/content/pages/orders-data.php');
-$batchesData = include resource_path('views/content/pages/batches-data.php');
+$ordersData = $ordersData ?? ['orders' => []];
+$batchesData = $batchesData ?? ['batches' => [], 'drivers' => []];
 $decodedId = urldecode($orderId);
 
-$order = collect($ordersData['orders'])->first(function ($o) use ($orderId, $decodedId) {
+$order = $order ?? collect($ordersData['orders'] ?? [])->first(function ($o) use ($orderId, $decodedId) {
     return strcasecmp($o['id'], $orderId) === 0 || strcasecmp($o['id'], $decodedId) === 0;
 });
 
-$batchId = null;
+$batchId = $order['batch_id'] ?? null;
 $deliveredAt = null;
 
-// Resolve orders that live inside completed delivery batches
 if ($order) {
-    foreach ($batchesData['batches'] as $batch) {
-        foreach ($batch['orders'] as $batchOrder) {
+    foreach ($batchesData['batches'] ?? [] as $batch) {
+        foreach ($batch['orders'] ?? [] as $batchOrder) {
             if (strcasecmp($batchOrder['id'], $order['id']) === 0) {
                 $batchId = $batch['id'];
                 $deliveredAt = $batchOrder['delivered_at'] ?? null;
@@ -22,43 +21,19 @@ if ($order) {
             }
         }
     }
-} else {
-    foreach ($batchesData['batches'] as $batch) {
-        foreach ($batch['orders'] as $batchOrder) {
-            if (strcasecmp($batchOrder['id'], $orderId) === 0 || strcasecmp($batchOrder['id'], $decodedId) === 0) {
-                $paymentMap = ['Paid' => 'online', 'COD' => 'cod', 'Apple Pay' => 'apple'];
-                $order = [
-                    'id' => $batchOrder['id'],
-                    'placed_at' => '01:05 PM',
-                    'customer' => $batchOrder['customer'],
-                    'phone' => '+1 555-0100',
-                    'area' => explode(',', $batch['zone'])[0] ?? $batch['zone'],
-                    'address' => preg_replace('/\s*[—-].*$/u', '', $batchOrder['address']),
-                    'store' => $batch['store'],
-                    'store_id' => $batch['store_id'] ?? 'downtown',
-                    'value' => $batchOrder['value'],
-                    'items' => 4,
-                    'payment' => $paymentMap[$batchOrder['payment'] ?? ''] ?? 'online',
-                    'driver' => $batch['driver'] ?? null,
-                ];
-                $batchId = $batch['id'];
-                $deliveredAt = $batchOrder['delivered_at'] ?? null;
-                break 2;
-            }
-        }
-    }
 }
 
-// Fallback: first delivered order in the queue
 if (!$order) {
-    $order = collect($ordersData['orders'])->first(fn ($o) => $o['delivery'] === 'delivered') ?? $ordersData['orders'][0];
+    $order = collect($ordersData['orders'] ?? [])->first(fn ($o) => ($o['delivery'] ?? '') === 'delivered')
+        ?? ($ordersData['orders'][0] ?? null);
 }
+abort_unless($order, 404);
 
 $fromBatch = request()->query('from') === 'batch';
 
 // Driver record (full detail from fleet data when available)
 $driver = $order['driver'] ?? ['name' => 'Michael Chen', 'id' => 'DRV-8492', 'avatar' => '5.png'];
-$fleetDriver = collect($batchesData['drivers'])->first(fn ($d) => $d['id'] === ($driver['id'] ?? ''));
+$fleetDriver = collect($batchesData['drivers'] ?? [])->first(fn ($d) => $d['id'] === ($driver['id'] ?? ''));
 
 $vehicleCode = $fleetDriver['vehicle'] ?? 'VAN-492A';
 $vehicleNames = [

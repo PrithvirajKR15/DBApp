@@ -1,7 +1,7 @@
 @php
 $isNavbar = false;
-$data = include resource_path('views/content/pages/batches-data.php');
-$settings = $data['settings'];
+$data = $data ?? [];
+$settings = $data['settings'] ?? [];
 @endphp
 
 @extends('layouts/contentNavbarLayout')

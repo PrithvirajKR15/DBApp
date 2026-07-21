@@ -4,10 +4,10 @@
 @section('page-title', 'Payouts')
 
 @php
-    $data = include resource_path('views/content/pages/payouts-data.php');
-    $metrics = $data['metrics'];
-    $drivers = $data['drivers'];
-    $payouts = $data['payouts'];
+    $data = $data ?? [];
+    $metrics = $data['metrics'] ?? [];
+    $drivers = $data['drivers'] ?? [];
+    $payouts = $data['payouts'] ?? [];
     $driverLifetimeTotal = collect($drivers)->sum('lifetime_paid');
     $driverPendingTotal = collect($drivers)->sum('pending_amount');
     $driverPaidOrders = collect($drivers)->sum('paid_orders');

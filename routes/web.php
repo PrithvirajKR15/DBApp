@@ -8,6 +8,11 @@ use App\Http\Controllers\dashboard\DashboardController;
 use App\Http\Controllers\pages\LiveMapController;
 use App\Http\Controllers\Fleet\StoreDriverController;
 use App\Http\Controllers\Fleet\ZoneDriverController;
+use App\Http\Controllers\Fleet\DriverPageController;
+use App\Http\Controllers\Operations\BatchController;
+use App\Http\Controllers\Operations\EarningsController;
+use App\Http\Controllers\Operations\OrderController;
+use App\Http\Controllers\Operations\PayoutController;
 use App\Http\Controllers\Users\UserController;
 
 // Guest authentication routes
@@ -65,9 +70,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/fleet/drivers/zone/{code}', [ZoneDriverController::class, 'destroy'])->name('fleet-drivers-zone.destroy');
     Route::post('/fleet/drivers/zone/{code}/status', [ZoneDriverController::class, 'updateStatus'])->name('fleet-drivers-zone.status');
 
-    Route::get('/fleet/drivers/{id}/profile', function ($id) {
-        return view('content.pages.driver-profile', ['driverId' => $id]);
-    })->name('fleet-drivers-profile');
+    Route::get('/fleet/drivers/{id}/profile', [DriverPageController::class, 'profile'])->name('fleet-drivers-profile');
 
     Route::get('/fleet/drivers', function () {
         return redirect()->route('fleet-drivers-store');
@@ -77,71 +80,19 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
         return view('content.pages.approvals');
     })->name('fleet-approvals');
 
-    Route::get('/fleet/approvals/{id}/review', function ($id) {
-        return view('content.pages.driver-review', ['driverId' => $id]);
-    })->name('fleet-approvals-review');
+    Route::get('/fleet/approvals/{id}/review', [DriverPageController::class, 'review'])->name('fleet-approvals-review');
 
-    Route::get('/operations/orders', function () {
-        return view('content.pages.orders');
-    })->name('operations-orders');
+    Route::get('/operations/orders', [OrderController::class, 'index'])->name('operations-orders');
+    Route::get('/operations/orders/{id}/completed', [OrderController::class, 'completed'])->name('operations-orders-completed');
+    Route::get('/operations/orders/{id}', [OrderController::class, 'show'])->name('operations-orders-detail');
 
-    Route::get('/operations/orders/{id}/completed', function ($id) {
-        return view('content.pages.completed-delivery-detail', ['orderId' => $id]);
-    })->name('operations-orders-completed');
+    Route::get('/operations/delivery-batches', [BatchController::class, 'index'])->name('operations-orders-batches');
+    Route::get('/operations/delivery-batches/generate', [BatchController::class, 'generate'])->name('operations-orders-batches-generate');
+    Route::get('/operations/delivery-batches/settings', [BatchController::class, 'settings'])->name('operations-orders-batches-settings');
 
-    Route::get('/operations/orders/{id}', function ($id) {
-        // Delivered orders get the dedicated completed-delivery view
-        $decoded = urldecode($id);
-        $ordersData = include resource_path('views/content/pages/orders-data.php');
-        $order = collect($ordersData['orders'])->first(fn ($o) => strcasecmp($o['id'], $decoded) === 0);
-        $delivered = $order && ($order['delivery'] ?? '') === 'delivered';
-
-        if (!$order) {
-            $batchesData = include resource_path('views/content/pages/batches-data.php');
-            foreach ($batchesData['batches'] as $batch) {
-                foreach ($batch['orders'] as $batchOrder) {
-                    if (strcasecmp($batchOrder['id'], $decoded) === 0) {
-                        $delivered = ($batchOrder['delivery'] ?? '') === 'Delivered';
-                        break 2;
-                    }
-                }
-            }
-        }
-
-        if ($delivered) {
-            return redirect()->route('operations-orders-completed', array_merge(['id' => $id], request()->query()));
-        }
-
-        return view('content.pages.order-detail', ['orderId' => $id]);
-    })->name('operations-orders-detail');
-
-    Route::get('/operations/delivery-batches', function () {
-        return view('content.pages.delivery-batches');
-    })->name('operations-orders-batches');
-
-    Route::get('/operations/delivery-batches/generate', function () {
-        return view('content.pages.delivery-batch-generate');
-    })->name('operations-orders-batches-generate');
-
-    Route::get('/operations/delivery-batches/settings', function () {
-        return view('content.pages.delivery-batch-settings');
-    })->name('operations-orders-batches-settings');
-
-    Route::get('/operations/earnings', function () {
-        return view('content.pages.earnings');
-    })->name('operations-earnings');
-
-    Route::get('/operations/payouts', function () {
-        return view('content.pages.payouts');
-    })->name('operations-payouts');
-
-    Route::get('/operations/payouts/drivers/{id}', function ($id) {
-        $data = include resource_path('views/content/pages/payouts-data.php');
-        $driver = collect($data['drivers'])->firstWhere('id', $id);
-        abort_unless($driver, 404);
-
-        return view('content.pages.driver-payout-detail', ['driver' => $driver]);
-    })->name('operations-payouts-driver-detail');
+    Route::get('/operations/earnings', [EarningsController::class, 'index'])->name('operations-earnings');
+    Route::get('/operations/payouts', [PayoutController::class, 'index'])->name('operations-payouts');
+    Route::get('/operations/payouts/drivers/{id}', [PayoutController::class, 'driver'])->name('operations-payouts-driver-detail');
 
     Route::get('/system/analytics', function () {
         return view('content.pages.analytics');

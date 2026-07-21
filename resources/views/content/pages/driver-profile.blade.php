@@ -1,11 +1,7 @@
 @php
 $isNavbar = false;
 
-$drivers = include resource_path('views/content/pages/drivers-data.php');
-
-// Match selected driver by ID
-$driver = collect($drivers)->firstWhere('id', $driverId) ?? $drivers[0];
-$backType = request()->query('type', $driver['type']);
+$backType = request()->query('type', $driver['type'] ?? 'store');
 $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-drivers-store');
 @endphp
 
@@ -301,10 +297,15 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                 <div class="driver-avatar-wrapper mb-3">
                     @php
                     $avatarSrc = $driver['avatar'] ?? '1.png';
-                    if (!str_starts_with($avatarSrc, 'data:image')) {
+                    if (
+                        ! str_starts_with($avatarSrc, 'data:image')
+                        && ! str_starts_with($avatarSrc, 'http://')
+                        && ! str_starts_with($avatarSrc, 'https://')
+                        && ! str_starts_with($avatarSrc, '/')
+                    ) {
                         $avatarSrc = asset('assets/img/avatars/' . $avatarSrc);
                     }
-                    $statusClass = strtolower($driver['status']);
+                    $statusClass = strtolower($driver['status'] ?? 'pending');
                     @endphp
                     <img src="{{ $avatarSrc }}" alt="Driver Avatar" class="rounded-circle" id="sidebar-avatar">
                     <span class="driver-status-dot {{ $statusClass }}" id="sidebar-status-dot"></span>

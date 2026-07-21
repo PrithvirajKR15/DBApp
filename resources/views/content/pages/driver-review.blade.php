@@ -1,10 +1,5 @@
 @php
 $isNavbar = false;
-
-$drivers = include resource_path('views/content/pages/drivers-data.php');
-
-// Fallback search
-$driver = collect($drivers)->firstWhere('id', $driverId) ?? $drivers[0];
 @endphp
 
 @extends('layouts/contentNavbarLayout')
@@ -309,7 +304,18 @@ $driver = collect($drivers)->firstWhere('id', $driverId) ?? $drivers[0];
             <div class="card-body p-4">
                 <div class="d-flex align-items-center flex-wrap gap-3">
                     <div class="avatar avatar-xl me-2" style="width: 72px; height: 72px;">
-                        <img src="/assets/img/avatars/{{ $driver['avatar'] }}" alt="{{ $driver['name'] }}" class="rounded-circle" style="width: 72px; height: 72px; object-fit: cover;">
+                        @php
+                            $reviewAvatar = $driver['avatar'] ?? '1.png';
+                            if (
+                                ! str_starts_with($reviewAvatar, 'data:image')
+                                && ! str_starts_with($reviewAvatar, 'http://')
+                                && ! str_starts_with($reviewAvatar, 'https://')
+                                && ! str_starts_with($reviewAvatar, '/')
+                            ) {
+                                $reviewAvatar = asset('assets/img/avatars/' . $reviewAvatar);
+                            }
+                        @endphp
+                        <img src="{{ $reviewAvatar }}" alt="{{ $driver['name'] }}" class="rounded-circle" style="width: 72px; height: 72px; object-fit: cover;">
                     </div>
                     <div class="flex-grow-1">
                         <div class="d-flex align-items-center gap-2 flex-wrap">

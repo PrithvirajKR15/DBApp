@@ -1,10 +1,10 @@
 @php
 $isNavbar = false;
-$data = include resource_path('views/content/pages/batches-data.php');
-$stores = $data['stores'];
-$settings = $data['settings'];
+$data = $data ?? [];
+$stores = $data['stores'] ?? [];
+$settings = $data['settings'] ?? [];
 $pendingOrders = $data['pending_orders'] ?? [];
-$batchDrivers = $data['drivers'];
+$batchDrivers = $data['drivers'] ?? [];
 @endphp
 
 @extends('layouts/contentNavbarLayout')

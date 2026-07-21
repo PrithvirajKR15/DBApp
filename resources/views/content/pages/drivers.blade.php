@@ -324,10 +324,6 @@ $type = $driverType ?? 'store';
 </style>
 
 @php
-$useDatabase = $useDatabase ?? false;
-if (! isset($drivers)) {
-    $drivers = include resource_path('views/content/pages/drivers-data.php');
-}
 $storesList = $stores ?? collect();
 $zonesList = $zones ?? collect();
 @endphp
@@ -1030,22 +1026,23 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
     }
 
-    // Initial drivers array injected from Blade PHP
-    let allDrivers = (@json($drivers)).map(normalizeDriverRecord);
+    // Drivers loaded via AJAX from the list endpoint
+    let allDrivers = [];
     
     // Dynamic page type passed from Laravel route ('store' or 'zone')
     const pageType = "{{ $type }}";
-    const useDatabase = @json($useDatabase);
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const zoneAreas = @json(($zonesList ?? collect())->map(fn ($zone) => ['id' => $zone->id, 'code' => $zone->code, 'name' => $zone->name])->values());
     const driverApiRoutes = pageType === 'store'
         ? {
+            list: @json(route('fleet-drivers-store.list')),
             store: @json(route('fleet-drivers-store.store')),
             update: @json(url('/fleet/drivers/store/__CODE__/update')),
             destroy: @json(url('/fleet/drivers/store/__CODE__')),
             status: @json(url('/fleet/drivers/store/__CODE__/status')),
         }
         : {
+            list: @json(route('fleet-drivers-zone.list')),
             store: @json(route('fleet-drivers-zone.store')),
             update: @json(url('/fleet/drivers/zone/__CODE__/update')),
             destroy: @json(url('/fleet/drivers/zone/__CODE__')),
@@ -1238,17 +1235,81 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Filter array to match current page type
-    const initialFilteredList = allDrivers.filter(d => d.type === pageType);
-
-    // Stats tracking matching filtered drivers
+    // Stats tracking — rebuilt after AJAX load
     let statsState = {
-        online: initialFilteredList.filter(d => listStatus(d) === 'Online').length,
-        offline: initialFilteredList.filter(d => listStatus(d) === 'Offline').length,
-        pending: initialFilteredList.filter(d => listStatus(d) === 'Pending').length,
-        suspended: initialFilteredList.filter(d => listStatus(d) === 'Suspended').length,
-        total: initialFilteredList.length
+        online: 0,
+        offline: 0,
+        pending: 0,
+        suspended: 0,
+        total: 0
     };
+
+    function rebuildStatsFromDrivers() {
+        const filteredList = allDrivers.filter(d => d.type === pageType);
+        statsState = {
+            online: filteredList.filter(d => listStatus(d) === 'Online').length,
+            offline: filteredList.filter(d => listStatus(d) === 'Offline').length,
+            pending: filteredList.filter(d => listStatus(d) === 'Pending').length,
+            suspended: filteredList.filter(d => listStatus(d) === 'Suspended').length,
+            total: filteredList.length
+        };
+    }
+
+    function showDriversLoading() {
+        const tbody = document.getElementById('drivers-tbody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center py-5 text-muted">
+                        <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+                        Loading drivers...
+                    </td>
+                </tr>
+            `;
+        }
+        const grid = document.getElementById('grid-view-container');
+        if (grid && !grid.classList.contains('d-none')) {
+            grid.innerHTML = `
+                <div class="col-12 text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+                    Loading drivers...
+                </div>
+            `;
+        }
+    }
+
+    async function loadDrivers() {
+        showDriversLoading();
+        try {
+            const response = await fetch(driverApiRoutes.list, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            const data = await parseJsonResponse(response);
+            allDrivers = (data.drivers || []).map(normalizeDriverRecord);
+            rebuildStatsFromDrivers();
+            updateStatsUI();
+            renderDrivers();
+        } catch (error) {
+            allDrivers = [];
+            rebuildStatsFromDrivers();
+            updateStatsUI();
+            const tbody = document.getElementById('drivers-tbody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center py-5 text-danger">
+                            <i class="bx bx-error-circle fs-3 mb-2 d-block"></i>
+                            ${escapeHtml(error.message || 'Unable to load drivers.')}
+                        </td>
+                    </tr>
+                `;
+            }
+            showToast('Error', error.message || 'Unable to load drivers.', 'error');
+        }
+    }
 
     let currentView = 'list'; // 'list' or 'grid'
 
@@ -1947,7 +2008,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (availabilitySection) {
             availabilitySection.style.display = isStore ? 'none' : 'block';
         }
-        setDocumentFieldsRequired(useDatabase);
+        setDocumentFieldsRequired(true);
 
         // Working days: all selected by default
         setWorkingDaysSelection(ALL_WORKING_DAYS);
@@ -2109,180 +2170,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const actionType = document.getElementById('driver-action-type').value;
-        if (useDatabase) {
-            saveDriverToServer(actionType);
-            return;
-        }
-        
-        const firstName = document.getElementById('driver-first-name').value.trim();
-        const lastName = document.getElementById('driver-last-name').value.trim();
-        const name = firstName + (lastName ? ' ' + lastName : '');
-        
-        const rawPhone = document.getElementById('driver-phone').value.trim();
-        const phone = '+91 ' + rawPhone.substring(0, 5) + ' ' + rawPhone.substring(5);
-        
-        const email = document.getElementById('driver-email').value.trim();
-        const dob = document.getElementById('driver-dob').value;
-        const gender = document.getElementById('driver-gender').value;
-        const address = document.getElementById('driver-address').value.trim();
-        const status = document.getElementById('driver-status').value;
-        const availability = document.getElementById('driver-availability').value;
-        const shift = document.getElementById('driver-shift').value;
-        const workingDays = getWorkingDaysSelection();
-        
-        // Location fields
-        const isStore = (pageType === 'store');
-        const store = isStore ? document.getElementById('driver-store').value : 'None';
-        const zone = isStore ? 'None' : document.getElementById('driver-zone').value;
-
-        // Retrieve checked service areas
-        let serviceAreas = [];
-        if (!isStore) {
-            const areas = ['downtown', 'northwest', 'southeast', 'uptown', 'east', 'west', 'midtown'];
-            areas.forEach(k => {
-                const chk = document.getElementById(`modal-area-${k}`);
-                if (chk && chk.checked) {
-                    serviceAreas.push(chk.value);
-                }
-            });
-        }
-
-        // Vehicle values
-        const plateNumber = document.getElementById('driver-plate-number').value.trim();
-        const vehicleBrand = document.getElementById('driver-vehicle-brand').value.trim();
-        const vehicleModel = document.getElementById('driver-vehicle-model').value.trim();
-        const vehicleType = document.getElementById('driver-vehicle-type').value;
-        const vehicleFuel = document.getElementById('driver-vehicle-fuel').value;
-        const licenseNumber = document.getElementById('driver-license-number').value.trim();
-        
-        const deliveries = parseInt(document.getElementById('driver-deliveries').value) || 0;
-        const rating = document.getElementById('driver-rating').value.trim();
-
-        // Retrieve photo preview source
-        let avatar = '1.png';
-        const previewImg = document.getElementById('avatarPreviewImg');
-        if (previewImg.style.display === 'block' && previewImg.src) {
-            avatar = previewImg.src;
-        }
-
-        // Retrieve Partner Type
-        let partnerType = 'independent';
-        let agencyName = '';
-        let agencyId = '';
-        if (!isStore) {
-            const radInd = document.getElementById('modalPartnerTypeInd');
-            if (radInd && !radInd.checked) {
-                partnerType = 'third-party';
-                const nameInput = document.getElementById('modalDriverAgencyName');
-                const idInput = document.getElementById('modalDriverAgencyId');
-                agencyName = nameInput ? nameInput.value.trim() : '';
-                agencyId = idInput ? idInput.value.trim() : '';
-            }
-        }
-
-        if (actionType === 'add') {
-            const randomId = 'DRV-' + Math.floor(4400 + Math.random() * 600);
-            const timestamp = new Date().toISOString().split('T')[0];
-            
-            // If image is default placeholder, give a random default avatar name
-            if (!avatar || avatar.endsWith('drivers')) {
-                const randomAvatarNum = Math.floor(1 + Math.random() * 8);
-                avatar = randomAvatarNum + '.png';
-            }
-
-            const newDriver = {
-                id: randomId,
-                name: name,
-                phone: phone,
-                avatar: avatar,
-                status: status,
-                availability: availability,
-                type: pageType,
-                store: store,
-                zone: zone,
-                service_areas: serviceAreas,
-                rating: rating,
-                deliveries: deliveries,
-                timestamp: timestamp,
-                email: email,
-                dob: dob,
-                gender: gender,
-                address: address,
-                plate_number: plateNumber,
-                vehicle_brand: vehicleBrand,
-                vehicle_model: vehicleModel,
-                vehicle_type: vehicleType,
-                vehicle_fuel: vehicleFuel,
-                license_required: 'Yes',
-                license_number: licenseNumber,
-                shift: shift,
-                working_days: workingDays,
-                partner_type: partnerType,
-                agency_name: agencyName,
-                agency_id: agencyId
-            };
-            
-            allDrivers.unshift(newDriver);
-            
-            // Adjust stats values
-            applyStatsDelta(listStatus(newDriver), 'add');
-            
-            showToast('Success', 'Driver profile created successfully!', 'success');
-            
-        } else {
-            const id = document.getElementById('edit-driver-id-hidden').value;
-            const driverIndex = allDrivers.findIndex(d => d.id === id);
-            if (driverIndex > -1) {
-                const oldListStatus = listStatus(allDrivers[driverIndex]);
-                const oldAvatar = allDrivers[driverIndex].avatar;
-                
-                // Keep old avatar if no new selection happened
-                if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
-                    if (avatar.includes('/assets/img/avatars/')) {
-                        avatar = oldAvatar;
-                    }
-                }
-
-                allDrivers[driverIndex].name = name;
-                allDrivers[driverIndex].phone = phone;
-                allDrivers[driverIndex].avatar = avatar;
-                allDrivers[driverIndex].status = status;
-                allDrivers[driverIndex].availability = availability;
-                allDrivers[driverIndex].store = store;
-                allDrivers[driverIndex].zone = zone;
-                allDrivers[driverIndex].service_areas = serviceAreas;
-                allDrivers[driverIndex].deliveries = deliveries;
-                allDrivers[driverIndex].rating = rating;
-                allDrivers[driverIndex].email = email;
-                allDrivers[driverIndex].dob = dob;
-                allDrivers[driverIndex].gender = gender;
-                allDrivers[driverIndex].address = address;
-                allDrivers[driverIndex].plate_number = plateNumber;
-                allDrivers[driverIndex].vehicle_brand = vehicleBrand;
-                allDrivers[driverIndex].vehicle_model = vehicleModel;
-                allDrivers[driverIndex].vehicle_type = vehicleType;
-                allDrivers[driverIndex].vehicle_fuel = vehicleFuel;
-                allDrivers[driverIndex].license_required = 'Yes';
-                allDrivers[driverIndex].license_number = licenseNumber;
-                allDrivers[driverIndex].shift = shift;
-                allDrivers[driverIndex].working_days = workingDays;
-                allDrivers[driverIndex].partner_type = partnerType;
-                allDrivers[driverIndex].agency_name = agencyName;
-                allDrivers[driverIndex].agency_id = agencyId;
-
-                const newListStatus = listStatus(allDrivers[driverIndex]);
-                if (oldListStatus !== newListStatus) {
-                    applyStatsDelta(oldListStatus, 'remove');
-                    applyStatsDelta(newListStatus, 'add');
-                }
-            }
-            
-            showToast('Success', 'Driver profile updated successfully!', 'success');
-        }
-        
-        driverModal.hide();
-        updateStatsUI();
-        renderDrivers();
+        saveDriverToServer(actionType);
     });
 
     // Inline status change handler (list badge values: Online/Offline/Pending/Suspended)
@@ -2307,57 +2195,32 @@ document.addEventListener('DOMContentLoaded', function () {
             ? `Driver set to ${newStatus}.`
             : `Driver status updated to ${newStatus}.`;
 
-        if (useDatabase) {
-            fetch(routeForCode(driverApiRoutes.status, id), {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
-            })
-                .then(parseJsonResponse)
-                .then((data) => {
-                    const driverIndex = allDrivers.findIndex((d) => d.id === id);
-                    if (driverIndex > -1) {
-                        const oldStatus = listStatus(allDrivers[driverIndex]);
-                        const shaped = normalizeDriverRecord(data.driver);
-                        if (oldStatus !== listStatus(shaped)) {
-                            applyStatsDelta(oldStatus, 'remove');
-                            applyStatsDelta(listStatus(shaped), 'add');
-                        }
-                        allDrivers[driverIndex] = shaped;
+        fetch(routeForCode(driverApiRoutes.status, id), {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        })
+            .then(parseJsonResponse)
+            .then((data) => {
+                const driverIndex = allDrivers.findIndex((d) => d.id === id);
+                if (driverIndex > -1) {
+                    const oldStatus = listStatus(allDrivers[driverIndex]);
+                    const shaped = normalizeDriverRecord(data.driver);
+                    if (oldStatus !== listStatus(shaped)) {
+                        applyStatsDelta(oldStatus, 'remove');
+                        applyStatsDelta(listStatus(shaped), 'add');
                     }
-                    updateStatsUI();
-                    renderDrivers();
-                    showToast('Updated', data.message || successLabel, 'info');
-                })
-                .catch((error) => showToast('Error', error.message || 'Unable to update status.', 'error'));
-            return;
-        }
-
-        const driverIndex = allDrivers.findIndex(d => d.id === id);
-        if (driverIndex > -1) {
-            const oldStatus = listStatus(allDrivers[driverIndex]);
-            if (oldStatus === newStatus) return;
-
-            if (newStatus === 'Online' || newStatus === 'Offline') {
-                allDrivers[driverIndex].availability = newStatus;
-                if (allDrivers[driverIndex].status === 'Offline') {
-                    allDrivers[driverIndex].status = 'Active';
+                    allDrivers[driverIndex] = shaped;
                 }
-            } else {
-                allDrivers[driverIndex].status = newStatus;
-            }
-
-            applyStatsDelta(oldStatus, 'remove');
-            applyStatsDelta(listStatus(allDrivers[driverIndex]), 'add');
-
-            updateStatsUI();
-            renderDrivers();
-            showToast('Updated', successLabel, 'info');
-        }
+                updateStatsUI();
+                renderDrivers();
+                showToast('Updated', data.message || successLabel, 'info');
+            })
+            .catch((error) => showToast('Error', error.message || 'Unable to update status.', 'error'));
     };
 
     // Inline delete profile handler using SweetAlert2
@@ -2382,47 +2245,34 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            if (useDatabase) {
-                try {
-                    const response = await fetch(routeForCode(driverApiRoutes.destroy, id), {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': csrfToken,
-                            'Accept': 'application/json',
-                        },
-                    });
-                    await parseJsonResponse(response);
+            try {
+                const response = await fetch(routeForCode(driverApiRoutes.destroy, id), {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json',
+                    },
+                });
+                await parseJsonResponse(response);
 
-                    const driverIndex = allDrivers.findIndex((d) => d.id === id);
-                    if (driverIndex > -1) {
-                        applyStatsDelta(listStatus(allDrivers[driverIndex]), 'remove');
-                        allDrivers.splice(driverIndex, 1);
-                    }
-
-                    updateStatsUI();
-                    renderDrivers();
-                    showToast('Deleted', 'Driver profile has been successfully deleted.', 'warning');
-                } catch (error) {
-                    showToast('Error', error.message || 'Unable to delete driver.', 'error');
-                }
-                return;
-            }
-
-            const driverIndex = allDrivers.findIndex(d => d.id === id);
+                const driverIndex = allDrivers.findIndex((d) => d.id === id);
                 if (driverIndex > -1) {
                     applyStatsDelta(listStatus(allDrivers[driverIndex]), 'remove');
                     allDrivers.splice(driverIndex, 1);
-                    
-                    updateStatsUI();
-                    renderDrivers();
-                    showToast('Deleted', 'Driver profile has been successfully deleted.', 'warning');
                 }
+
+                updateStatsUI();
+                renderDrivers();
+                showToast('Deleted', 'Driver profile has been successfully deleted.', 'warning');
+            } catch (error) {
+                showToast('Error', error.message || 'Unable to delete driver.', 'error');
+            }
         });
     };
 
-    // Initial render call
+    // Initial load via AJAX
     updateStatsUI();
-    renderDrivers();
+    loadDrivers();
 });
 </script>
 @endsection

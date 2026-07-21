@@ -18,14 +18,11 @@ class StoreDriverController extends Controller
 
     public function index()
     {
-        $drivers = $this->driverService->listStoreDrivers()->values()->all();
         $stores = Store::where('status', 'active')->orderBy('name')->get(['id', 'name']);
 
         return view('content.pages.drivers', [
             'driverType' => 'store',
-            'drivers' => $drivers,
             'stores' => $stores,
-            'useDatabase' => true,
         ]);
     }
 
