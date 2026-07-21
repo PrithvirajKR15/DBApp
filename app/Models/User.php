@@ -7,13 +7,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -26,12 +28,14 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
+        'store_id',
         'code',
         'status',
         'image',
         'dob',
         'gender',
         'address',
+        'dev_remark',
     ];
 
     /**
@@ -65,6 +69,11 @@ class User extends Authenticatable
         ];
     }
 
+    public function getImageAttribute($value)
+    {
+        return $value !== null ? Storage::url($value) : null;
+    }
+
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
@@ -84,6 +93,11 @@ class User extends Authenticatable
     public function stores(): HasMany
     {
         return $this->hasMany(Store::class);
+    }
+
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 
     /**

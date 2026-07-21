@@ -7,12 +7,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Driver profile. Identity (name, email, phone, image, code, status, ...) lives
- * on the related User; live location lives in driver_locations; zones in
- * driver_assignments; earnings in driver_earnings; per-delivery figures on
- * orders. This model only holds durable driver attributes.
+ * on the related User; operational availability (Online/Offline) lives here;
+ * live location lives in driver_locations; zones in driver_assignments;
+ * earnings in driver_earnings; per-delivery figures on orders. This model only
+ * holds durable driver attributes.
  */
 class Driver extends Model
 {
@@ -20,6 +22,7 @@ class Driver extends Model
         'user_id',
         'rating',
         'joined_at',
+        'availability',
         'vehicle_type',
         'vehicle_brand',
         'vehicle_model',
@@ -27,7 +30,10 @@ class Driver extends Model
         'vehicle_fuel',
         'license_number',
         'shift',
+        'working_days',
         'partner_type',
+        'agency_name',
+        'agency_id',
         'service_areas',
     ];
 
@@ -35,6 +41,7 @@ class Driver extends Model
     {
         return [
             'service_areas' => 'array',
+            'working_days' => 'array',
             'joined_at' => 'date',
             'rating' => 'float',
         ];
@@ -97,6 +104,31 @@ class Driver extends Model
     public function earnings(): HasMany
     {
         return $this->hasMany(DriverEarning::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(DriverDocument::class);
+    }
+
+    /**
+     * Drivers assigned to a store (active store assignment).
+     */
+    public function scopeStoreDrivers(Builder $query): Builder
+    {
+        return $query->whereHas('activeAssignment', function (Builder $q) {
+            $q->where('type', 'store')->whereNotNull('store_id');
+        });
+    }
+
+    /**
+     * Independent drivers assigned to a zone (active zone assignment).
+     */
+    public function scopeZoneDrivers(Builder $query): Builder
+    {
+        return $query->whereHas('activeAssignment', function (Builder $q) {
+            $q->where('type', 'zone')->whereNotNull('zone_id');
+        });
     }
 
     /**

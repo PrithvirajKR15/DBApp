@@ -6,6 +6,9 @@ use App\Http\Controllers\authentications\RegisterBasic;
 use App\Http\Controllers\authentications\ForgotPasswordBasic;
 use App\Http\Controllers\dashboard\DashboardController;
 use App\Http\Controllers\pages\LiveMapController;
+use App\Http\Controllers\Fleet\StoreDriverController;
+use App\Http\Controllers\Fleet\ZoneDriverController;
+use App\Http\Controllers\Users\UserController;
 
 // Guest authentication routes
 Route::middleware('guest')->group(function () {
@@ -48,13 +51,19 @@ Route::middleware(['auth', 'role:user'])->group(function () {
 Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/live-map', [LiveMapController::class, 'index'])->name('live-map');
 
-    Route::get('/fleet/drivers/store', function () {
-        return view('content.pages.drivers', ['driverType' => 'store']);
-    })->name('fleet-drivers-store');
+    Route::get('/fleet/drivers/store', [StoreDriverController::class, 'index'])->name('fleet-drivers-store');
+    Route::get('/fleet/drivers/store/list', [StoreDriverController::class, 'list'])->name('fleet-drivers-store.list');
+    Route::post('/fleet/drivers/store', [StoreDriverController::class, 'store'])->name('fleet-drivers-store.store');
+    Route::post('/fleet/drivers/store/{code}/update', [StoreDriverController::class, 'update'])->name('fleet-drivers-store.update');
+    Route::delete('/fleet/drivers/store/{code}', [StoreDriverController::class, 'destroy'])->name('fleet-drivers-store.destroy');
+    Route::post('/fleet/drivers/store/{code}/status', [StoreDriverController::class, 'updateStatus'])->name('fleet-drivers-store.status');
 
-    Route::get('/fleet/drivers/zone', function () {
-        return view('content.pages.drivers', ['driverType' => 'zone']);
-    })->name('fleet-drivers-zone');
+    Route::get('/fleet/drivers/zone', [ZoneDriverController::class, 'index'])->name('fleet-drivers-zone');
+    Route::get('/fleet/drivers/zone/list', [ZoneDriverController::class, 'list'])->name('fleet-drivers-zone.list');
+    Route::post('/fleet/drivers/zone', [ZoneDriverController::class, 'store'])->name('fleet-drivers-zone.store');
+    Route::post('/fleet/drivers/zone/{code}/update', [ZoneDriverController::class, 'update'])->name('fleet-drivers-zone.update');
+    Route::delete('/fleet/drivers/zone/{code}', [ZoneDriverController::class, 'destroy'])->name('fleet-drivers-zone.destroy');
+    Route::post('/fleet/drivers/zone/{code}/status', [ZoneDriverController::class, 'updateStatus'])->name('fleet-drivers-zone.status');
 
     Route::get('/fleet/drivers/{id}/profile', function ($id) {
         return view('content.pages.driver-profile', ['driverId' => $id]);
@@ -137,6 +146,13 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/system/analytics', function () {
         return view('content.pages.analytics');
     })->name('system-analytics');
+
+    Route::get('/system/users', [UserController::class, 'index'])->name('system-users');
+    Route::post('/store/users', [UserController::class, 'store'])->name('user.store');
+    Route::get('/users/list', [UserController::class, 'list'])->name('users.list');
+    Route::get('/users/{id}/edit', [UserController::class,'edit'])->name('users.edit');
+    Route::post('/users/{id}/update',[UserController::class,'update'])->name('users.update');
+    Route::post('users/{id}/toggle-status',[UserController::class,'toggleStatus'])->name('users.toggleStatus');
 
     Route::get('/system/settings', function () {
         return view('content.pages.settings');

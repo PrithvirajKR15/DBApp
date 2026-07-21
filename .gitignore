@@ -12,6 +12,10 @@
 .env.production
 .phpunit.result.cache
 
+.env
+.env.*
+!.env.example
+
 docker-compose.override.yml
 
 Homestead.json
@@ -26,3 +30,4 @@ yarn-error.log
 !/public/assets/*
 /public/css
 /public/js
+.env

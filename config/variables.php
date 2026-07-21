@@ -1,7 +1,7 @@
 <?php
 // Variables
 return [
-  "creatorName" => "Kenland IT Solutions",
+  "creatorName" => "Kenland IT Solutions Pvt Ltd",
   "creatorUrl" => "https://www.kenland.in/",
   "templateName" => "Deliverease",
   "templateSuffix" => "Deliverease Dashboard",
@@ -15,7 +15,7 @@ return [
   "support" => "https://www.kenland.in/",
   "adminTemplates" => "https://www.kenland.in/",
   "bootstrapDashboard" => "https://www.kenland.in/",
-  "ogTitle" => "Deliverease Dashboard by Kenland IT Solutions",
+  "ogTitle" => "Deliverease Dashboard by Kenland IT Solutions Pvt Ltd",
   "ogImage" => "https://ts-assets.b-cdn.net/ts-assets/sneat/sneat-bootstrap-laravel-admin-template-free/marketing/sneat-bootstrap-laravel-admin-template-free-smm.png",
   "ogType" => "product",
   "documentation" => "https://www.kenland.in/",

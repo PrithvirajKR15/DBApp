@@ -19,6 +19,7 @@ class ZoneSeeder extends Seeder
             ['code' => 'east-side', 'name' => 'East Side', 'region' => null],
             ['code' => 'midtown', 'name' => 'Midtown', 'region' => null],
             ['code' => 'southeast-hub', 'name' => 'Southeast Hub', 'region' => null],
+            ['code' => 'west-end', 'name' => 'West End', 'region' => null],
         ];
 
         foreach ($zones as $zone) {

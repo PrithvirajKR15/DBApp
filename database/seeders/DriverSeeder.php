@@ -44,7 +44,7 @@ class DriverSeeder extends Seeder
                     'password' => Hash::make('password@123'),
                     'role_id' => $userRoleId,
                     'code' => $d['id'],
-                    'status' => $d['status'] ?? 'Active',
+                    'status' => $this->accountStatus($d['status'] ?? 'Active'),
                     'image' => $d['avatar'] ?? null,
                     'dob' => $d['dob'] ?? null,
                     'gender' => $d['gender'] ?? null,
@@ -57,6 +57,7 @@ class DriverSeeder extends Seeder
                 [
                     'rating' => $rating,
                     'joined_at' => $d['timestamp'] ?? null,
+                    'availability' => $d['availability'] ?? $this->availabilityFromLegacyStatus($d['status'] ?? 'Active'),
                     'vehicle_type' => $d['vehicle_type'] ?? null,
                     'vehicle_brand' => $d['vehicle_brand'] ?? null,
                     'vehicle_model' => $d['vehicle_model'] ?? null,
@@ -64,6 +65,7 @@ class DriverSeeder extends Seeder
                     'vehicle_fuel' => $d['vehicle_fuel'] ?? null,
                     'license_number' => $d['license_number'] ?? null,
                     'shift' => $d['shift'] ?? null,
+                    'working_days' => $d['working_days'] ?? null,
                     'partner_type' => $d['partner_type'] ?? null,
                     'service_areas' => $serviceAreas,
                 ]
@@ -104,7 +106,7 @@ class DriverSeeder extends Seeder
                     'password' => Hash::make('password@123'),
                     'role_id' => $userRoleId,
                     'code' => $d['code'],
-                    'status' => $d['live_status'] === 'Offline' ? 'Offline' : 'Active',
+                    'status' => 'Active',
                     'image' => $d['image'],
                 ]
             );
@@ -113,6 +115,7 @@ class DriverSeeder extends Seeder
                 ['user_id' => $user->id],
                 [
                     'rating' => $d['rating'],
+                    'availability' => $d['live_status'] === 'Offline' ? 'Offline' : 'Online',
                 ]
             );
 
@@ -172,5 +175,30 @@ class DriverSeeder extends Seeder
         $this->usedMobiles[$candidate] = true;
 
         return $candidate;
+    }
+
+    /**
+     * Map legacy combined status values onto account status.
+     */
+    private function accountStatus(string $legacyStatus): string
+    {
+        return match ($legacyStatus) {
+            'Offline', 'Active', 'Approved' => 'Active',
+            'Pending Review', 'Docs Verified', 'Pending' => 'Pending',
+            'Suspended' => 'Suspended',
+            default => 'Active',
+        };
+    }
+
+    /**
+     * Map legacy combined status values onto operational availability.
+     */
+    private function availabilityFromLegacyStatus(string $legacyStatus): string
+    {
+        return match ($legacyStatus) {
+            'Offline' => 'Offline',
+            'Active', 'Approved' => 'Online',
+            default => 'Offline',
+        };
     }
 }

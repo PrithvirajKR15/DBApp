@@ -92,6 +92,12 @@
       "slug": "system-analytics"
     },
     {
+      "url": "/system/users",
+      "name": "Users",
+      "icon": "menu-icon icon-base bx bx-user",
+      "slug": "system-users"
+    },
+    {
       "url": "/system/settings",
       "name": "Settings",
       "icon": "menu-icon icon-base bx bx-cog",

@@ -136,11 +136,13 @@ $type = $driverType ?? 'store';
         border-radius: 6px;
         text-transform: capitalize;
     }
-    .status-badge-custom.active {
+    .status-badge-custom.active,
+    .status-badge-custom.online {
         background-color: rgba(40, 199, 111, 0.1) !important;
         color: #28c76f !important;
     }
-    .status-badge-custom.active .dot {
+    .status-badge-custom.active .dot,
+    .status-badge-custom.online .dot {
         background-color: #28c76f;
     }
     .status-badge-custom.offline {
@@ -169,6 +171,38 @@ $type = $driverType ?? 'store';
         width: 6px;
         height: 6px;
         border-radius: 50%;
+    }
+
+    .btn-availability-toggle {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .btn-availability-toggle.online {
+        color: #28c76f;
+        border-color: rgba(40, 199, 111, 0.45) !important;
+        background-color: rgba(40, 199, 111, 0.08);
+    }
+    .btn-availability-toggle.online:hover:not(:disabled) {
+        color: #fff;
+        background-color: #28c76f;
+        border-color: #28c76f !important;
+    }
+    .btn-availability-toggle.offline {
+        color: #8592a3;
+        border-color: #e0e2e7 !important;
+        background-color: #fff;
+    }
+    .btn-availability-toggle.offline:hover:not(:disabled) {
+        color: #fff;
+        background-color: #8592a3;
+        border-color: #8592a3 !important;
+    }
+    .btn-availability-toggle:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
     }
 
     /* Table Styles */
@@ -290,7 +324,12 @@ $type = $driverType ?? 'store';
 </style>
 
 @php
-$drivers = include resource_path('views/content/pages/drivers-data.php');
+$useDatabase = $useDatabase ?? false;
+if (! isset($drivers)) {
+    $drivers = include resource_path('views/content/pages/drivers-data.php');
+}
+$storesList = $stores ?? collect();
+$zonesList = $zones ?? collect();
 @endphp
 
 <!-- Page Header Section -->
@@ -316,7 +355,7 @@ $drivers = include resource_path('views/content/pages/drivers-data.php');
 
 <!-- KPI Cards Summary Row -->
 <div class="row mb-4">
-    <!-- Active Card -->
+    <!-- Online Card -->
     <div class="col-sm-6 col-lg-3 mb-3 mb-lg-0">
         <div class="card shadow-none border summary-card">
             <div class="card-body d-flex align-items-center p-3">
@@ -324,7 +363,7 @@ $drivers = include resource_path('views/content/pages/drivers-data.php');
                     <i class="bx bx-check-circle" style="font-size: 1.5rem;"></i>
                 </div>
                 <div>
-                    <small class="text-uppercase fw-semibold text-muted d-block" style="font-size: 0.75rem; letter-spacing: 0.5px;">Active</small>
+                    <small class="text-uppercase fw-semibold text-muted d-block" style="font-size: 0.75rem; letter-spacing: 0.5px;">Online</small>
                     <h4 class="mb-0 fw-bold text-body mt-1" id="card-active-val" style="font-size: 1.6rem; line-height: 1.2;">0</h4>
                 </div>
             </div>
@@ -392,7 +431,7 @@ $drivers = include resource_path('views/content/pages/drivers-data.php');
                 <!-- Status pills -->
                 <div class="d-flex align-items-center gap-2 flex-wrap" id="status-filter-pills">
                     <button type="button" class="btn btn-pill filter-pill active" data-status="all">All</button>
-                    <button type="button" class="btn btn-pill filter-pill" data-status="active">Active</button>
+                    <button type="button" class="btn btn-pill filter-pill" data-status="online">Online</button>
                     <button type="button" class="btn btn-pill filter-pill" data-status="offline">Offline</button>
                     <button type="button" class="btn btn-pill filter-pill" data-status="pending">Pending</button>
                     <button type="button" class="btn btn-pill filter-pill" data-status="suspended">Suspended</button>
@@ -619,13 +658,19 @@ $drivers = include resource_path('views/content/pages/drivers-data.php');
                                         <span class="input-group-text border-0 bg-transparent ps-3"><i class="bx bx-pin text-muted" style="font-size: 1.1rem;"></i></span>
                                         <select class="form-select border-0 bg-transparent ps-2" id="driver-zone" style="box-shadow: none; font-size: 0.88rem; height: 38px;">
                                             <option value="" disabled selected>Select zone</option>
-                                            <option value="Downtown Zone">Downtown Zone</option>
-                                            <option value="Northwest District">Northwest District</option>
-                                            <option value="Southeast Hub">Southeast Hub</option>
-                                            <option value="Uptown Area">Uptown Area</option>
-                                            <option value="East Side">East Side</option>
-                                            <option value="West End">West End</option>
-                                            <option value="Midtown">Midtown</option>
+                                            @if($zonesList->isNotEmpty())
+                                                @foreach($zonesList as $zoneOption)
+                                                    <option value="{{ $zoneOption->id }}" data-code="{{ $zoneOption->code }}">{{ $zoneOption->name }}</option>
+                                                @endforeach
+                                            @else
+                                                <option value="Downtown Zone">Downtown Zone</option>
+                                                <option value="Northwest District">Northwest District</option>
+                                                <option value="Southeast Hub">Southeast Hub</option>
+                                                <option value="Uptown Area">Uptown Area</option>
+                                                <option value="East Side">East Side</option>
+                                                <option value="West End">West End</option>
+                                                <option value="Midtown">Midtown</option>
+                                            @endif
                                         </select>
                                     </div>
                                 </div>
@@ -636,11 +681,17 @@ $drivers = include resource_path('views/content/pages/drivers-data.php');
                                         <span class="input-group-text border-0 bg-transparent ps-3"><i class="bx bx-store text-muted" style="font-size: 1.1rem;"></i></span>
                                         <select class="form-select border-0 bg-transparent ps-2" id="driver-store" style="box-shadow: none; font-size: 0.88rem; height: 38px;">
                                             <option value="" disabled selected>Select store</option>
-                                            <option value="Amanora Mall Store">Amanora Mall Store</option>
-                                            <option value="Phoenix Marketcity Store">Phoenix Marketcity Store</option>
-                                            <option value="MG Road Express">MG Road Express</option>
-                                            <option value="Baner Delivery Hub">Baner Delivery Hub</option>
-                                            <option value="Koregaon Park Store">Koregaon Park Store</option>
+                                            @if($storesList->isNotEmpty())
+                                                @foreach($storesList as $storeOption)
+                                                    <option value="{{ $storeOption->id }}">{{ $storeOption->name }}</option>
+                                                @endforeach
+                                            @else
+                                                <option value="Amanora Mall Store">Amanora Mall Store</option>
+                                                <option value="Phoenix Marketcity Store">Phoenix Marketcity Store</option>
+                                                <option value="MG Road Express">MG Road Express</option>
+                                                <option value="Baner Delivery Hub">Baner Delivery Hub</option>
+                                                <option value="Koregaon Park Store">Koregaon Park Store</option>
+                                            @endif
                                         </select>
                                     </div>
                                 </div>
@@ -671,15 +722,21 @@ $drivers = include resource_path('views/content/pages/drivers-data.php');
                                 </div>
                             </div>
 
-                            <!-- Initial Status -->
-                            <div class="row mb-4">
+                            <!-- Account status + availability -->
+                            <div class="row mb-4" id="driver-status-section">
                                 <div class="col-md-6">
-                                    <label for="driver-status" class="form-label text-body fw-semibold">Initial Status</label>
-                                    <select class="form-select" id="driver-status" required style="border-radius: 8px; font-size: 0.88rem; height: 38px;">
-                                        <option value="Pending" selected>Pending Review</option>
-                                        <option value="Active">Active</option>
-                                        <option value="Offline">Offline</option>
+                                    <label for="driver-status" class="form-label text-body fw-semibold" id="driver-status-label">Initial Status</label>
+                                    <select class="form-select" id="driver-status" style="border-radius: 8px; font-size: 0.88rem; height: 38px;">
+                                        <option value="Pending">Pending Review</option>
+                                        <option value="Active" selected>Active</option>
                                         <option value="Suspended">Suspended</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6" id="driver-availability-section">
+                                    <label for="driver-availability" class="form-label text-body fw-semibold">Availability</label>
+                                    <select class="form-select" id="driver-availability" style="border-radius: 8px; font-size: 0.88rem; height: 38px;">
+                                        <option value="Online">Online</option>
+                                        <option value="Offline" selected>Offline</option>
                                     </select>
                                 </div>
                             </div>
@@ -695,17 +752,19 @@ $drivers = include resource_path('views/content/pages/drivers-data.php');
                                     <label class="form-label text-body fw-semibold mb-2">Select Operations Service Areas (Multi-select)</label>
                                     <p class="text-muted small mb-3">Note: The primary assigned zone is selected in Personal Info. Other selected zones will be saved as secondary service areas.</p>
                                     
-                                    <div class="row g-3">
+                                    <div class="row g-3" id="service-areas-grid">
                                         @php
-                                        $allAreas = [
-                                            'downtown' => 'Downtown Zone',
-                                            'northwest' => 'Northwest District',
-                                            'southeast' => 'Southeast Hub',
-                                            'uptown' => 'Uptown Area',
-                                            'east' => 'East Side',
-                                            'west' => 'West End',
-                                            'midtown' => 'Midtown'
-                                        ];
+                                        $allAreas = $zonesList->isNotEmpty()
+                                            ? $zonesList->mapWithKeys(fn ($zone) => [$zone->code => $zone->name])->all()
+                                            : [
+                                                'downtown-zone' => 'Downtown Zone',
+                                                'northwest-district' => 'Northwest District',
+                                                'southeast-hub' => 'Southeast Hub',
+                                                'uptown-area' => 'Uptown Area',
+                                                'east-side' => 'East Side',
+                                                'west-end' => 'West End',
+                                                'midtown' => 'Midtown',
+                                            ];
                                         @endphp
                                         @foreach ($allAreas as $key => $label)
                                         <div class="col-sm-6">
@@ -854,7 +913,14 @@ $drivers = include resource_path('views/content/pages/drivers-data.php');
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-weight: 600;">Cancel</button>
-                        <button type="submit" class="btn btn-primary-orange d-flex align-items-center gap-2" id="save-driver-btn" style="border-radius: 8px; padding: 10px 20px;">
+                        <button type="button" class="btn btn-outline-secondary d-none" id="modal-back-btn" style="border-radius: 8px; font-weight: 600;">
+                            <i class="bx bx-chevron-left" style="font-size: 1.15rem;"></i> Back
+                        </button>
+                        <button type="button" class="btn btn-primary-orange d-flex align-items-center gap-2" id="modal-next-btn" style="border-radius: 8px; padding: 10px 20px;">
+                            <span>Next</span>
+                            <i class="bx bx-chevron-right" style="font-size: 1.15rem;"></i>
+                        </button>
+                        <button type="submit" class="btn btn-primary-orange d-none align-items-center gap-2" id="save-driver-btn" style="border-radius: 8px; padding: 10px 20px;">
                             <i class="bx bx-user-plus" id="footerIconSymbol" style="font-size: 1.2rem;"></i>
                             <span id="save-btn-text">Add Driver</span>
                         </button>
@@ -893,21 +959,294 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 
-    // Initial mock drivers array injected from Blade PHP
-    const allDrivers = @json($drivers);
+    /** Account status for Pending/Suspended; otherwise operational availability. */
+    function listStatus(driver) {
+        const account = driver.status || 'Pending';
+        if (account === 'Pending' || account === 'Suspended' || account === 'Rejected') {
+            return account;
+        }
+        return driver.availability === 'Online' ? 'Online' : 'Offline';
+    }
+
+    function normalizeDriverRecord(driver) {
+        if (!driver) return driver;
+        if (!driver.availability) {
+            if (driver.status === 'Offline') {
+                driver.availability = 'Offline';
+                driver.status = 'Active';
+            } else if (driver.status === 'Active') {
+                driver.availability = 'Online';
+            } else {
+                driver.availability = 'Offline';
+            }
+        }
+        return driver;
+    }
+
+    function canToggleAvailability(driver) {
+        return (driver.status || '') === 'Active';
+    }
+
+    function availabilityToggleButtonHtml(driver) {
+        const isOnline = driver.availability === 'Online';
+        const enabled = canToggleAvailability(driver);
+        const nextLabel = isOnline ? 'Offline' : 'Online';
+        const title = enabled
+            ? `Set ${nextLabel}`
+            : 'Only Active drivers can be toggled Online/Offline';
+        const stateClass = isOnline ? 'online' : 'offline';
+        const icon = isOnline ? 'bx-wifi' : 'bx-wifi-off';
+        const disabledAttr = enabled ? '' : 'disabled';
+
+        return `
+            <button type="button"
+                class="btn btn-sm btn-icon btn-outline-secondary rounded-circle btn-availability-toggle ${stateClass}"
+                onclick="toggleDriverAvailability('${driver.id}')"
+                title="${title}"
+                ${disabledAttr}
+                style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">
+                <i class="bx ${icon}" style="font-size: 1.15rem;"></i>
+            </button>
+        `;
+    }
+
+    function availabilityToggleMenuItemHtml(driver) {
+        if (!canToggleAvailability(driver)) {
+            return `
+                <a class="dropdown-item disabled" href="javascript:void(0);" tabindex="-1" aria-disabled="true">
+                    <i class="bx bx-wifi-off me-2"></i> Availability locked
+                </a>
+            `;
+        }
+
+        const isOnline = driver.availability === 'Online';
+        const nextLabel = isOnline ? 'Offline' : 'Online';
+        const icon = isOnline ? 'bx-wifi-off' : 'bx-wifi';
+
+        return `
+            <a class="dropdown-item" href="javascript:void(0);" onclick="toggleDriverAvailability('${driver.id}')">
+                <i class="bx ${icon} me-2"></i> Set ${nextLabel}
+            </a>
+        `;
+    }
+
+    // Initial drivers array injected from Blade PHP
+    let allDrivers = (@json($drivers)).map(normalizeDriverRecord);
     
     // Dynamic page type passed from Laravel route ('store' or 'zone')
-    const pageType = "{{ $type }}"; 
+    const pageType = "{{ $type }}";
+    const useDatabase = @json($useDatabase);
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const zoneAreas = @json(($zonesList ?? collect())->map(fn ($zone) => ['id' => $zone->id, 'code' => $zone->code, 'name' => $zone->name])->values());
+    const driverApiRoutes = pageType === 'store'
+        ? {
+            store: @json(route('fleet-drivers-store.store')),
+            update: @json(url('/fleet/drivers/store/__CODE__/update')),
+            destroy: @json(url('/fleet/drivers/store/__CODE__')),
+            status: @json(url('/fleet/drivers/store/__CODE__/status')),
+        }
+        : {
+            store: @json(route('fleet-drivers-zone.store')),
+            update: @json(url('/fleet/drivers/zone/__CODE__/update')),
+            destroy: @json(url('/fleet/drivers/zone/__CODE__')),
+            status: @json(url('/fleet/drivers/zone/__CODE__/status')),
+        };
+
+    const DOCUMENT_FIELD_IDS = [
+        'driver-aadhaar-front',
+        'driver-aadhaar-back',
+        'driver-dl-front',
+        'driver-dl-back',
+        'driver-pan-card',
+        'driver-vehicle-rc',
+        'driver-vehicle-insurance',
+    ];
+
+    function setDocumentFieldsRequired(required) {
+        DOCUMENT_FIELD_IDS.forEach((id) => {
+            const input = document.getElementById(id);
+            if (input) {
+                if (required) {
+                    input.setAttribute('required', 'true');
+                } else {
+                    input.removeAttribute('required');
+                }
+            }
+        });
+    }
+
+    function routeForCode(template, code) {
+        return template.replace('__CODE__', encodeURIComponent(code));
+    }
+
+    async function parseJsonResponse(response) {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const message = data.message
+                || (data.errors ? Object.values(data.errors).flat().join(' ') : 'Request failed.');
+            throw new Error(message);
+        }
+        return data;
+    }
+
+    function buildDriverFormData() {
+        const formData = new FormData();
+        const appendValue = (key, value) => {
+            if (value !== null && value !== undefined && value !== '') {
+                formData.append(key, value);
+            }
+        };
+
+        appendValue('driver-first-name', document.getElementById('driver-first-name').value.trim());
+        appendValue('driver-last-name', document.getElementById('driver-last-name').value.trim());
+        appendValue('driver-email', document.getElementById('driver-email').value.trim());
+        appendValue('driver-phone', document.getElementById('driver-phone').value.trim());
+        appendValue('driver-dob', document.getElementById('driver-dob').value);
+        appendValue('driver-gender', document.getElementById('driver-gender').value);
+        appendValue('driver-address', document.getElementById('driver-address').value.trim());
+        appendValue('driver-shift', document.getElementById('driver-shift').value);
+        appendValue('driver-status', document.getElementById('driver-status').value);
+        appendValue('driver-availability', document.getElementById('driver-availability').value);
+        appendValue('driver-plate-number', document.getElementById('driver-plate-number').value.trim());
+        appendValue('driver-vehicle-brand', document.getElementById('driver-vehicle-brand').value.trim());
+        appendValue('driver-vehicle-model', document.getElementById('driver-vehicle-model').value.trim());
+        appendValue('driver-vehicle-type', document.getElementById('driver-vehicle-type').value);
+        appendValue('driver-vehicle-fuel', document.getElementById('driver-vehicle-fuel').value);
+        appendValue('driver-license-number', document.getElementById('driver-license-number').value.trim());
+
+        if (pageType === 'store') {
+            appendValue('driver-store', document.getElementById('driver-store').value);
+        } else {
+            appendValue('driver-zone', document.getElementById('driver-zone').value);
+            getSelectedServiceAreaCodes().forEach((code) => formData.append('service_areas[]', code));
+
+            let partnerType = 'independent';
+            const radInd = document.getElementById('modalPartnerTypeInd');
+            if (radInd && !radInd.checked) {
+                partnerType = 'third-party';
+                appendValue('agency_name', document.getElementById('modalDriverAgencyName')?.value?.trim() || '');
+                appendValue('agency_id', document.getElementById('modalDriverAgencyId')?.value?.trim() || '');
+            }
+            appendValue('partner_type', partnerType);
+        }
+
+        getWorkingDaysSelection().forEach((day) => formData.append('working_days[]', day));
+
+        const avatarFile = document.getElementById('driver-avatar-file')?.files?.[0];
+        if (avatarFile) {
+            formData.append('driver-avatar-file', avatarFile);
+        }
+
+        DOCUMENT_FIELD_IDS.forEach((id) => {
+            const file = document.getElementById(id)?.files?.[0];
+            if (file) {
+                formData.append(id, file);
+            }
+        });
+
+        return formData;
+    }
+
+    function getSelectedServiceAreaCodes() {
+        const zoneSelect = document.getElementById('driver-zone');
+        const primaryCode = zoneSelect?.selectedOptions?.[0]?.dataset?.code || '';
+        const codes = [];
+
+        getServiceAreaDefinitions().forEach((area) => {
+            const checkbox = document.getElementById(`modal-area-${area.key}`);
+            if (checkbox?.checked && area.key !== primaryCode) {
+                codes.push(area.key);
+            }
+        });
+
+        return codes;
+    }
+
+    function getServiceAreaDefinitions() {
+        if (zoneAreas.length) {
+            return zoneAreas.map((zone) => ({ key: zone.code, val: zone.name }));
+        }
+
+        return [
+            { key: 'downtown-zone', val: 'Downtown Zone' },
+            { key: 'northwest-district', val: 'Northwest District' },
+            { key: 'southeast-hub', val: 'Southeast Hub' },
+            { key: 'uptown-area', val: 'Uptown Area' },
+            { key: 'east-side', val: 'East Side' },
+            { key: 'west-end', val: 'West End' },
+            { key: 'midtown', val: 'Midtown' },
+        ];
+    }
+
+    function applyStatsDelta(listStatusValue, direction) {
+        const delta = direction === 'add' ? 1 : -1;
+        statsState.total += delta;
+        if (listStatusValue === 'Online') statsState.online += delta;
+        else if (listStatusValue === 'Offline') statsState.offline += delta;
+        else if (listStatusValue === 'Pending') statsState.pending += delta;
+        else if (listStatusValue === 'Suspended') statsState.suspended += delta;
+    }
+
+    async function saveDriverToServer(actionType) {
+        const saveBtn = document.getElementById('save-driver-btn');
+        saveBtn.disabled = true;
+
+        try {
+            const formData = buildDriverFormData();
+            const isEdit = actionType === 'edit';
+            const code = document.getElementById('edit-driver-id-hidden').value;
+            const url = isEdit ? routeForCode(driverApiRoutes.update, code) : driverApiRoutes.store;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: formData,
+            });
+
+            const data = await parseJsonResponse(response);
+            const driver = data.driver;
+
+            if (isEdit) {
+                const index = allDrivers.findIndex((d) => d.id === code);
+                if (index > -1) {
+                    const oldStatus = listStatus(allDrivers[index]);
+                    const shaped = normalizeDriverRecord(driver);
+                    if (oldStatus !== listStatus(shaped)) {
+                        applyStatsDelta(oldStatus, 'remove');
+                        applyStatsDelta(listStatus(shaped), 'add');
+                    }
+                    allDrivers[index] = shaped;
+                }
+                showToast('Success', data.message || 'Driver profile updated successfully!', 'success');
+            } else {
+                const shaped = normalizeDriverRecord(driver);
+                allDrivers.unshift(shaped);
+                applyStatsDelta(listStatus(shaped), 'add');
+                showToast('Success', data.message || 'Driver profile created successfully!', 'success');
+            }
+
+            driverModal.hide();
+            updateStatsUI();
+            renderDrivers();
+        } catch (error) {
+            showToast('Error', error.message || 'Unable to save driver.', 'error');
+        } finally {
+            saveBtn.disabled = false;
+        }
+    }
 
     // Filter array to match current page type
     const initialFilteredList = allDrivers.filter(d => d.type === pageType);
 
     // Stats tracking matching filtered drivers
     let statsState = {
-        active: initialFilteredList.filter(d => d.status === 'Active').length,
-        offline: initialFilteredList.filter(d => d.status === 'Offline').length,
-        pending: initialFilteredList.filter(d => d.status === 'Pending').length,
-        suspended: initialFilteredList.filter(d => d.status === 'Suspended').length,
+        online: initialFilteredList.filter(d => listStatus(d) === 'Online').length,
+        offline: initialFilteredList.filter(d => listStatus(d) === 'Offline').length,
+        pending: initialFilteredList.filter(d => listStatus(d) === 'Pending').length,
+        suspended: initialFilteredList.filter(d => listStatus(d) === 'Suspended').length,
         total: initialFilteredList.length
     };
 
@@ -936,7 +1275,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Render Stats values
     function updateStatsUI() {
-        document.getElementById('card-active-val').textContent = statsState.active;
+        document.getElementById('card-active-val').textContent = statsState.online;
         document.getElementById('card-offline-val').textContent = statsState.offline;
         document.getElementById('card-pending-val').textContent = statsState.pending;
         document.getElementById('card-suspended-val').textContent = statsState.suspended;
@@ -962,7 +1301,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                   d.phone.toLowerCase().includes(query) ||
                                   locText.toLowerCase().includes(query);
                                   
-            const matchesStatus = (statusFilter === 'all') || (d.status.toLowerCase() === statusFilter);
+            const matchesStatus = (statusFilter === 'all') || (listStatus(d).toLowerCase() === statusFilter);
             
             return matchesSearch && matchesStatus;
         });
@@ -1015,8 +1354,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         <i class="bx bxs-star" style="color: #ffab00;"></i> ${d.rating}
                     </span>`;
                     
-                const statusClass = d.status.toLowerCase();
-                const avatarSrc = d.avatar.startsWith('data:image') ? d.avatar : `/assets/img/avatars/${d.avatar}`;
+                const shownStatus = listStatus(d);
+                const statusClass = shownStatus.toLowerCase();
+                const avatarSrc = d.avatar.startsWith('data:image') ? d.avatar : d.avatar;
                 const locationText = pageType === 'store' ? escapeHtml(d.store) : escapeHtml(d.zone);
                 
                 return `
@@ -1043,7 +1383,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td style="padding: 14px 20px; vertical-align: middle;">
                             <span class="status-badge-custom ${statusClass}">
                                 <span class="dot"></span>
-                                <span>${d.status}</span>
+                                <span>${shownStatus}</span>
                             </span>
                         </td>
                         <td style="padding: 14px 20px; vertical-align: middle;">
@@ -1060,6 +1400,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         </td>
                         <td style="padding: 14px 20px; vertical-align: middle; text-align: right; padding-right: 24px;">
                             <div class="d-flex align-items-center justify-content-end gap-1">
+                                ${availabilityToggleButtonHtml(d)}
                                 <a href="/fleet/drivers/${d.id}/profile?type=${pageType}" class="btn btn-sm btn-icon btn-outline-primary rounded-circle" title="View Driver Profile" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">
                                     <i class="bx bx-user" style="font-size: 1.15rem;"></i>
                                 </a>
@@ -1091,7 +1432,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     `<span class="text-muted"><i class="bx bx-star me-1"></i>—</span>` :
                     `<span class="text-warning fw-bold"><i class="bx bxs-star me-1" style="color: #ffab00;"></i>${d.rating}</span>`;
                     
-                const statusClass = d.status.toLowerCase();
+                const shownStatus = listStatus(d);
+                const statusClass = shownStatus.toLowerCase();
                 const avatarSrc = d.avatar.startsWith('data:image') ? d.avatar : `/assets/img/avatars/${d.avatar}`;
                 const locationLabel = pageType === 'store' ? 'Store:' : 'Zone:';
                 const locationText = pageType === 'store' ? escapeHtml(d.store) : escapeHtml(d.zone);
@@ -1108,7 +1450,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     </div>
                                     <span class="status-badge-custom ${statusClass}">
                                         <span class="dot"></span>
-                                        <span>${d.status}</span>
+                                        <span>${shownStatus}</span>
                                     </span>
                                 </div>
                                 
@@ -1145,6 +1487,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                             <i class="bx bx-dots-vertical-rounded"></i>
                                         </button>
                                         <div class="dropdown-menu dropdown-menu-end">
+                                            ${availabilityToggleMenuItemHtml(d)}
                                             <a class="dropdown-item" href="/fleet/drivers/${d.id}/profile?type=${pageType}"><i class="bx bx-user me-2"></i> View Driver Profile</a>
                                             <a class="dropdown-item" href="javascript:void(0);" onclick="openEditModal('${d.id}')"><i class="bx bx-edit-alt me-2"></i> Edit Profile</a>
                                             <div class="dropdown-divider"></div>
@@ -1245,48 +1588,39 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Helper mappings and logic for multi-selectable Service Areas (Zone-wise drivers only)
     function getAreaKeyFromLabel(label) {
+        const fromZones = zoneAreas.find((zone) => zone.name === label);
+        if (fromZones) {
+            return fromZones.code;
+        }
+
         const mapping = {
-            'Downtown Zone': 'downtown',
-            'Northwest District': 'northwest',
-            'Southeast Hub': 'southeast',
-            'Uptown Area': 'uptown',
-            'East Side': 'east',
-            'West End': 'west',
-            'Midtown': 'midtown'
+            'Downtown Zone': 'downtown-zone',
+            'Northwest District': 'northwest-district',
+            'Southeast Hub': 'southeast-hub',
+            'Uptown Area': 'uptown-area',
+            'East Side': 'east-side',
+            'West End': 'west-end',
+            'Midtown': 'midtown',
         };
         return mapping[label] || '';
     }
 
     function getCurrentlyCheckedSecondaryKeys() {
-        const keys = [];
-        const areas = ['downtown', 'northwest', 'southeast', 'uptown', 'east', 'west', 'midtown'];
-        areas.forEach(k => {
-            const chk = document.getElementById(`modal-area-${k}`);
-            const radio = document.getElementById(`primary-radio-${k}`);
-            if (chk && chk.checked && !(radio && radio.checked)) {
-                keys.push(k);
-            }
-        });
-        return keys;
+        return getSelectedServiceAreaCodes();
     }
 
     function updateServiceAreaCheckboxes(selectedZone, checkedSecondaryKeys = []) {
-        const areas = [
-            { id: 'modal-area-downtown', val: 'Downtown Zone', key: 'downtown' },
-            { id: 'modal-area-northwest', val: 'Northwest District', key: 'northwest' },
-            { id: 'modal-area-southeast', val: 'Southeast Hub', key: 'southeast' },
-            { id: 'modal-area-uptown', val: 'Uptown Area', key: 'uptown' },
-            { id: 'modal-area-east', val: 'East Side', key: 'east' },
-            { id: 'modal-area-west', val: 'West End', key: 'west' },
-            { id: 'modal-area-midtown', val: 'Midtown', key: 'midtown' }
-        ];
-        
-        areas.forEach(area => {
-            const chk = document.getElementById(area.id);
+        const areas = getServiceAreaDefinitions();
+        const selectedZoneName = typeof selectedZone === 'string'
+            ? selectedZone
+            : zoneAreas.find((zone) => String(zone.id) === String(selectedZone))?.name || '';
+
+        areas.forEach((area) => {
+            const chk = document.getElementById(`modal-area-${area.key}`);
             const radio = document.getElementById(`primary-radio-${area.key}`);
-            
+
             if (chk) {
-                if (area.val === selectedZone) {
+                if (area.val === selectedZoneName) {
                     chk.checked = true;
                     if (radio) radio.checked = true;
                 } else {
@@ -1376,13 +1710,19 @@ document.addEventListener('DOMContentLoaded', function () {
     window.handleModalPrimaryRadioChange = function(key) {
         const chk = document.getElementById(`modal-area-${key}`);
         const label = chk ? chk.getAttribute('data-label') : '';
-        
         const zoneSelect = document.getElementById('driver-zone');
-        if (zoneSelect && label) {
-            zoneSelect.value = label;
+
+        if (zoneSelect) {
+            const matchedOption = [...zoneSelect.options].find((option) => {
+                return option.dataset.code === key || option.text === label;
+            });
+
+            if (matchedOption) {
+                zoneSelect.value = matchedOption.value;
+            }
         }
-        
-        updateServiceAreaCheckboxes(label, getCurrentlyCheckedSecondaryKeys());
+
+        updateServiceAreaCheckboxes(zoneSelect ? zoneSelect.value : label, getCurrentlyCheckedSecondaryKeys());
     };
 
     const zoneSelect = document.getElementById('driver-zone');
@@ -1421,6 +1761,75 @@ document.addEventListener('DOMContentLoaded', function () {
     const driverModalEl = document.getElementById('driverModal');
     const driverModal = new bootstrap.Modal(driverModalEl);
     const driverForm = document.getElementById('driverForm');
+    const modalBackBtn = document.getElementById('modal-back-btn');
+    const modalNextBtn = document.getElementById('modal-next-btn');
+    const saveDriverBtn = document.getElementById('save-driver-btn');
+
+    function getModalTabButtons() {
+        return Array.from(document.querySelectorAll('#modalTabsList .nav-link'));
+    }
+
+    function getActiveModalTabIndex() {
+        return getModalTabButtons().findIndex((btn) => btn.classList.contains('active'));
+    }
+
+    function updateModalWizardButtons() {
+        const tabs = getModalTabButtons();
+        const index = Math.max(0, getActiveModalTabIndex());
+        const isFirst = index <= 0;
+        const isLast = index >= tabs.length - 1;
+        const isAdd = document.getElementById('driver-action-type').value === 'add';
+
+        modalBackBtn.classList.toggle('d-none', isFirst);
+        modalNextBtn.classList.toggle('d-none', isLast);
+        saveDriverBtn.classList.toggle('d-none', !isLast);
+        saveDriverBtn.classList.toggle('d-flex', isLast);
+
+        if (isLast) {
+            document.getElementById('save-btn-text').textContent = isAdd ? 'Add Driver' : 'Save Changes';
+            document.getElementById('footerIconSymbol').className = isAdd ? 'bx bx-user-plus' : 'bx bx-check';
+        }
+    }
+
+    function validateActiveModalTab() {
+        const activePane = document.querySelector('#driverModal .tab-pane.active');
+        if (!activePane) {
+            return true;
+        }
+
+        const fields = activePane.querySelectorAll('input, select, textarea');
+        for (const field of fields) {
+            if (typeof field.checkValidity === 'function' && !field.checkValidity()) {
+                field.reportValidity();
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function goToModalTab(index) {
+        const tabs = getModalTabButtons();
+        if (index < 0 || index >= tabs.length) {
+            return;
+        }
+        new bootstrap.Tab(tabs[index]).show();
+    }
+
+    modalNextBtn.addEventListener('click', function () {
+        if (!validateActiveModalTab()) {
+            return;
+        }
+        goToModalTab(getActiveModalTabIndex() + 1);
+    });
+
+    modalBackBtn.addEventListener('click', function () {
+        goToModalTab(getActiveModalTabIndex() - 1);
+    });
+
+    getModalTabButtons().forEach((btn) => {
+        btn.addEventListener('shown.bs.tab', updateModalWizardButtons);
+    });
 
     const ALL_WORKING_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -1511,11 +1920,34 @@ document.addEventListener('DOMContentLoaded', function () {
         const firstTabEl = document.querySelector('#modalTabsList button:first-child');
         const tab = new bootstrap.Tab(firstTabEl);
         tab.show();
+        updateModalWizardButtons();
 
         // Default hidden fields setup
         document.getElementById('driver-deliveries').value = 0;
         document.getElementById('driver-rating').value = '—';
-        document.getElementById('driver-status').value = 'Pending';
+
+        const statusSection = document.getElementById('driver-status-section');
+        const statusLabel = document.getElementById('driver-status-label');
+        const statusSelect = document.getElementById('driver-status');
+        const availabilitySection = document.getElementById('driver-availability-section');
+        const availabilitySelect = document.getElementById('driver-availability');
+        if (isStore) {
+            // Store drivers are created as Active + Offline; both can be changed later via edit.
+            statusSection.style.display = 'none';
+            statusSelect.removeAttribute('required');
+            statusSelect.value = 'Active';
+            availabilitySelect.value = 'Offline';
+        } else {
+            statusSection.style.display = 'block';
+            statusLabel.textContent = 'Initial Status';
+            statusSelect.setAttribute('required', 'true');
+            statusSelect.value = 'Pending';
+            availabilitySelect.value = 'Offline';
+        }
+        if (availabilitySection) {
+            availabilitySection.style.display = isStore ? 'none' : 'block';
+        }
+        setDocumentFieldsRequired(useDatabase);
 
         // Working days: all selected by default
         setWorkingDaysSelection(ALL_WORKING_DAYS);
@@ -1530,6 +1962,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         driverModal.show();
+        updateModalWizardButtons();
     };
 
     window.openEditModal = function(id) {
@@ -1564,26 +1997,56 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('driver-gender').value = driver.gender || '';
         document.getElementById('driver-address').value = driver.address || '';
         document.getElementById('driver-status').value = driver.status || 'Active';
+        document.getElementById('driver-availability').value = driver.availability || 'Offline';
         document.getElementById('driver-shift').value = driver.shift || 'Morning Shift (6:00 AM - 2:00 PM)';
         setWorkingDaysSelection(normalizeWorkingDays(driver.working_days));
+
+        const statusSection = document.getElementById('driver-status-section');
+        const statusLabel = document.getElementById('driver-status-label');
+        const availabilitySection = document.getElementById('driver-availability-section');
+        statusSection.style.display = 'block';
+        statusLabel.textContent = 'Account Status';
+        document.getElementById('driver-status').setAttribute('required', 'true');
+        if (availabilitySection) {
+            availabilitySection.style.display = 'block';
+        }
 
         // Select correct elements on load
         if (isStore) {
             document.getElementById('store-select-container').style.display = 'block';
             document.getElementById('driver-store').setAttribute('required', 'true');
-            document.getElementById('driver-store').value = driver.store || '';
+            const storeSelect = document.getElementById('driver-store');
+            if (driver.store_id) {
+                storeSelect.value = String(driver.store_id);
+            } else if (driver.store) {
+                [...storeSelect.options].forEach((option) => {
+                    if (option.text === driver.store) {
+                        storeSelect.value = option.value;
+                    }
+                });
+            }
             document.getElementById('zone-select-container').style.display = 'none';
             document.getElementById('driver-zone').removeAttribute('required');
+            setDocumentFieldsRequired(false);
         } else {
             document.getElementById('zone-select-container').style.display = 'block';
             document.getElementById('driver-zone').setAttribute('required', 'true');
-            document.getElementById('driver-zone').value = driver.zone || '';
+            const zoneSelect = document.getElementById('driver-zone');
+            if (driver.zone_id) {
+                zoneSelect.value = String(driver.zone_id);
+            } else if (driver.zone) {
+                [...zoneSelect.options].forEach((option) => {
+                    if (option.text === driver.zone) {
+                        zoneSelect.value = option.value;
+                    }
+                });
+            }
             document.getElementById('store-select-container').style.display = 'none';
             document.getElementById('driver-store').removeAttribute('required');
-            
-            const primaryKey = getAreaKeyFromLabel(driver.zone);
-            const secondaryAreas = driver.service_areas ? driver.service_areas.filter(k => k !== primaryKey) : [];
-            updateServiceAreaCheckboxes(driver.zone, secondaryAreas);
+
+            const primaryKey = driver.zone_code || getAreaKeyFromLabel(driver.zone);
+            const secondaryAreas = (driver.service_areas || []).filter((key) => key !== primaryKey);
+            updateServiceAreaCheckboxes(driver.zone_id || driver.zone, secondaryAreas);
             
             const partnerType = driver.partner_type || 'independent';
             selectModalPartnerType(partnerType);
@@ -1592,6 +2055,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const agencyIdInput = document.getElementById('modalDriverAgencyId');
             if (agencyNameInput) agencyNameInput.value = driver.agency_name || '';
             if (agencyIdInput) agencyIdInput.value = driver.agency_id || '';
+            setDocumentFieldsRequired(false);
         }
 
         // Pre-fill Vehicle Details
@@ -1627,13 +2091,29 @@ document.addEventListener('DOMContentLoaded', function () {
         tab.show();
 
         driverModal.show();
+        updateModalWizardButtons();
     };
 
     // Save driver profile form handler
     driverForm.addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
+        // Enter key / accidental submit on earlier tabs advances to Next instead.
+        const tabs = getModalTabButtons();
+        const activeIndex = getActiveModalTabIndex();
+        if (activeIndex < tabs.length - 1) {
+            if (validateActiveModalTab()) {
+                goToModalTab(activeIndex + 1);
+            }
+            return;
+        }
+
         const actionType = document.getElementById('driver-action-type').value;
+        if (useDatabase) {
+            saveDriverToServer(actionType);
+            return;
+        }
+        
         const firstName = document.getElementById('driver-first-name').value.trim();
         const lastName = document.getElementById('driver-last-name').value.trim();
         const name = firstName + (lastName ? ' ' + lastName : '');
@@ -1646,6 +2126,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const gender = document.getElementById('driver-gender').value;
         const address = document.getElementById('driver-address').value.trim();
         const status = document.getElementById('driver-status').value;
+        const availability = document.getElementById('driver-availability').value;
         const shift = document.getElementById('driver-shift').value;
         const workingDays = getWorkingDaysSelection();
         
@@ -1715,6 +2196,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 phone: phone,
                 avatar: avatar,
                 status: status,
+                availability: availability,
                 type: pageType,
                 store: store,
                 zone: zone,
@@ -1743,11 +2225,7 @@ document.addEventListener('DOMContentLoaded', function () {
             allDrivers.unshift(newDriver);
             
             // Adjust stats values
-            statsState.total++;
-            if (status === 'Active') statsState.active++;
-            else if (status === 'Offline') statsState.offline++;
-            else if (status === 'Pending') statsState.pending++;
-            else if (status === 'Suspended') statsState.suspended++;
+            applyStatsDelta(listStatus(newDriver), 'add');
             
             showToast('Success', 'Driver profile created successfully!', 'success');
             
@@ -1755,7 +2233,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const id = document.getElementById('edit-driver-id-hidden').value;
             const driverIndex = allDrivers.findIndex(d => d.id === id);
             if (driverIndex > -1) {
-                const oldStatus = allDrivers[driverIndex].status;
+                const oldListStatus = listStatus(allDrivers[driverIndex]);
                 const oldAvatar = allDrivers[driverIndex].avatar;
                 
                 // Keep old avatar if no new selection happened
@@ -1765,23 +2243,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
 
-                // Adjust stats values on status change
-                if (oldStatus !== status) {
-                    if (oldStatus === 'Active') statsState.active--;
-                    else if (oldStatus === 'Offline') statsState.offline--;
-                    else if (oldStatus === 'Pending') statsState.pending--;
-                    else if (oldStatus === 'Suspended') statsState.suspended--;
-                    
-                    if (status === 'Active') statsState.active++;
-                    else if (status === 'Offline') statsState.offline++;
-                    else if (status === 'Pending') statsState.pending++;
-                    else if (status === 'Suspended') statsState.suspended++;
-                }
-                
                 allDrivers[driverIndex].name = name;
                 allDrivers[driverIndex].phone = phone;
                 allDrivers[driverIndex].avatar = avatar;
                 allDrivers[driverIndex].status = status;
+                allDrivers[driverIndex].availability = availability;
                 allDrivers[driverIndex].store = store;
                 allDrivers[driverIndex].zone = zone;
                 allDrivers[driverIndex].service_areas = serviceAreas;
@@ -1803,6 +2269,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 allDrivers[driverIndex].partner_type = partnerType;
                 allDrivers[driverIndex].agency_name = agencyName;
                 allDrivers[driverIndex].agency_id = agencyId;
+
+                const newListStatus = listStatus(allDrivers[driverIndex]);
+                if (oldListStatus !== newListStatus) {
+                    applyStatsDelta(oldListStatus, 'remove');
+                    applyStatsDelta(newListStatus, 'add');
+                }
             }
             
             showToast('Success', 'Driver profile updated successfully!', 'success');
@@ -1813,28 +2285,78 @@ document.addEventListener('DOMContentLoaded', function () {
         renderDrivers();
     });
 
-    // Inline status change handler
+    // Inline status change handler (list badge values: Online/Offline/Pending/Suspended)
+    window.toggleDriverAvailability = function(id) {
+        const driver = allDrivers.find((d) => d.id === id);
+        if (!driver) return;
+
+        if (!canToggleAvailability(driver)) {
+            showToast('Unavailable', 'Only Active drivers can be set Online or Offline.', 'warning');
+            return;
+        }
+
+        const nextAvailability = driver.availability === 'Online' ? 'Offline' : 'Online';
+        changeDriverStatus(id, nextAvailability);
+    };
+
     window.changeDriverStatus = function(id, newStatus) {
+        const payload = (newStatus === 'Online' || newStatus === 'Offline')
+            ? { availability: newStatus }
+            : { status: newStatus };
+        const successLabel = (newStatus === 'Online' || newStatus === 'Offline')
+            ? `Driver set to ${newStatus}.`
+            : `Driver status updated to ${newStatus}.`;
+
+        if (useDatabase) {
+            fetch(routeForCode(driverApiRoutes.status, id), {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            })
+                .then(parseJsonResponse)
+                .then((data) => {
+                    const driverIndex = allDrivers.findIndex((d) => d.id === id);
+                    if (driverIndex > -1) {
+                        const oldStatus = listStatus(allDrivers[driverIndex]);
+                        const shaped = normalizeDriverRecord(data.driver);
+                        if (oldStatus !== listStatus(shaped)) {
+                            applyStatsDelta(oldStatus, 'remove');
+                            applyStatsDelta(listStatus(shaped), 'add');
+                        }
+                        allDrivers[driverIndex] = shaped;
+                    }
+                    updateStatsUI();
+                    renderDrivers();
+                    showToast('Updated', data.message || successLabel, 'info');
+                })
+                .catch((error) => showToast('Error', error.message || 'Unable to update status.', 'error'));
+            return;
+        }
+
         const driverIndex = allDrivers.findIndex(d => d.id === id);
         if (driverIndex > -1) {
-            const oldStatus = allDrivers[driverIndex].status;
+            const oldStatus = listStatus(allDrivers[driverIndex]);
             if (oldStatus === newStatus) return;
-            
-            if (oldStatus === 'Active') statsState.active--;
-            else if (oldStatus === 'Offline') statsState.offline--;
-            else if (oldStatus === 'Pending') statsState.pending--;
-            else if (oldStatus === 'Suspended') statsState.suspended--;
-            
-            if (newStatus === 'Active') statsState.active++;
-            else if (newStatus === 'Offline') statsState.offline++;
-            else if (newStatus === 'Pending') statsState.pending++;
-            else if (newStatus === 'Suspended') statsState.suspended++;
-            
-            allDrivers[driverIndex].status = newStatus;
-            
+
+            if (newStatus === 'Online' || newStatus === 'Offline') {
+                allDrivers[driverIndex].availability = newStatus;
+                if (allDrivers[driverIndex].status === 'Offline') {
+                    allDrivers[driverIndex].status = 'Active';
+                }
+            } else {
+                allDrivers[driverIndex].status = newStatus;
+            }
+
+            applyStatsDelta(oldStatus, 'remove');
+            applyStatsDelta(listStatus(allDrivers[driverIndex]), 'add');
+
             updateStatsUI();
             renderDrivers();
-            showToast('Status Updated', `Driver status updated to ${newStatus}.`, 'info');
+            showToast('Updated', successLabel, 'info');
         }
     };
 
@@ -1845,7 +2367,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         Swal.fire({
             title: 'Delete Driver?',
-            text: `Are you sure you want to permanently delete the profile of ${driver.name}?`,
+            text: `Are you sure you want to delete the profile of ${driver.name}?`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Yes, delete it!',
@@ -1855,25 +2377,46 @@ document.addEventListener('DOMContentLoaded', function () {
                 cancelButton: 'btn btn-outline-secondary px-3 py-2'
             },
             buttonsStyling: false
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const driverIndex = allDrivers.findIndex(d => d.id === id);
+        }).then(async (result) => {
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            if (useDatabase) {
+                try {
+                    const response = await fetch(routeForCode(driverApiRoutes.destroy, id), {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Accept': 'application/json',
+                        },
+                    });
+                    await parseJsonResponse(response);
+
+                    const driverIndex = allDrivers.findIndex((d) => d.id === id);
+                    if (driverIndex > -1) {
+                        applyStatsDelta(listStatus(allDrivers[driverIndex]), 'remove');
+                        allDrivers.splice(driverIndex, 1);
+                    }
+
+                    updateStatsUI();
+                    renderDrivers();
+                    showToast('Deleted', 'Driver profile has been successfully deleted.', 'warning');
+                } catch (error) {
+                    showToast('Error', error.message || 'Unable to delete driver.', 'error');
+                }
+                return;
+            }
+
+            const driverIndex = allDrivers.findIndex(d => d.id === id);
                 if (driverIndex > -1) {
-                    const status = allDrivers[driverIndex].status;
-                    
-                    statsState.total--;
-                    if (status === 'Active') statsState.active--;
-                    else if (status === 'Offline') statsState.offline--;
-                    else if (status === 'Pending') statsState.pending--;
-                    else if (status === 'Suspended') statsState.suspended--;
-                    
+                    applyStatsDelta(listStatus(allDrivers[driverIndex]), 'remove');
                     allDrivers.splice(driverIndex, 1);
                     
                     updateStatsUI();
                     renderDrivers();
                     showToast('Deleted', 'Driver profile has been successfully deleted.', 'warning');
                 }
-            }
         });
     };
 
