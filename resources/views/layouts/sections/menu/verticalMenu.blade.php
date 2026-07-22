@@ -10,7 +10,7 @@
       <span class="app-brand-text demo menu-text fw-bold ms-2">{{ config('variables.templateName') }}</span>
     </a>
 
-    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-none d-xl-block" title="Toggle side menu" aria-label="Toggle side menu">
       <i class="icon-base bx bx-chevron-left icon-sm d-flex align-items-center justify-content-center"></i>
     </a>
   </div>
@@ -60,7 +60,8 @@
             @endisset
             <div>{{ isset($menu->name) ? __($menu->name) : '' }}</div>
             @isset($menu->badge)
-              <div class="badge rounded-pill bg-{{ $menu->badge[0] }} text-uppercase ms-auto">{{ $menu->badge[1] }}</div>
+              <div class="badge rounded-pill bg-{{ $menu->badge[0] }} text-uppercase ms-auto"
+                @if (($menu->slug ?? null) === 'fleet-approvals') data-menu-badge="fleet-approvals" @endif>{{ $menu->badge[1] }}</div>
             @endisset
           </a>
 

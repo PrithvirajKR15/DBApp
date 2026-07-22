@@ -101,11 +101,17 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
     .driver-status-dot.offline {
         background-color: #8592a3;
     }
+    .driver-status-dot.transit {
+        background-color: #00bad1;
+    }
     .driver-status-dot.pending {
         background-color: #ffab00;
     }
     .driver-status-dot.suspended {
         background-color: #ff3e1d;
+    }
+    .driver-status-dot.rejected {
+        background-color: #ea5455;
     }
 
     /* Vertical Navigation Pills */
@@ -205,6 +211,13 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
     .status-badge-custom.offline .dot {
         background-color: #8592a3;
     }
+    .status-badge-custom.transit {
+        background-color: rgba(0, 186, 209, 0.12) !important;
+        color: #00bad1 !important;
+    }
+    .status-badge-custom.transit .dot {
+        background-color: #00bad1;
+    }
     .status-badge-custom.pending {
         background-color: rgba(255, 171, 0, 0.1) !important;
         color: #ffab00 !important;
@@ -218,6 +231,13 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
     }
     .status-badge-custom.suspended .dot {
         background-color: #ff3e1d;
+    }
+    .status-badge-custom.rejected {
+        background-color: rgba(234, 84, 85, 0.12) !important;
+        color: #ea5455 !important;
+    }
+    .status-badge-custom.rejected .dot {
+        background-color: #ea5455;
     }
     .dot {
         display: inline-block;
@@ -267,6 +287,77 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
         background-color: #ff7a00 !important;
         border-color: #ff7a00 !important;
     }
+
+    /* Compact cute toasts */
+    .app-toast-stack {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 1090;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        pointer-events: none;
+    }
+    .app-toast {
+        pointer-events: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        max-width: min(280px, calc(100vw - 2rem));
+        padding: 8px 12px 8px 8px;
+        background: #ffffff;
+        border: 1px solid #eef2f7;
+        border-radius: 999px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        color: #475569;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.3;
+        animation: app-toast-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .app-toast.is-leaving {
+        animation: app-toast-out 0.22s ease forwards;
+    }
+    .app-toast__icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 0.85rem;
+    }
+    .app-toast__msg {
+        padding-right: 4px;
+        word-break: break-word;
+    }
+    .app-toast--success .app-toast__icon {
+        background: #e8faf0;
+        color: #28c76f;
+    }
+    .app-toast--error .app-toast__icon {
+        background: #fdeeee;
+        color: #ea5455;
+    }
+    .app-toast--warning .app-toast__icon {
+        background: #fff5e5;
+        color: #ff9f43;
+    }
+    .app-toast--info .app-toast__icon {
+        background: #fff4eb;
+        color: #ff7a00;
+    }
+    @keyframes app-toast-in {
+        from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes app-toast-out {
+        from { opacity: 1; transform: translateY(0) scale(1); }
+        to { opacity: 0; transform: translateY(-6px) scale(0.96); }
+    }
 </style>
 
 <!-- Top Navigation & Title Bar -->
@@ -306,6 +397,14 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                         $avatarSrc = asset('assets/img/avatars/' . $avatarSrc);
                     }
                     $statusClass = strtolower($driver['status'] ?? 'pending');
+                    $sidebarStatusText = $driver['status'] ?? 'Pending';
+                    if ($sidebarStatusText === 'Pending') {
+                        $sidebarStatusText = 'Pending Review';
+                    } elseif ($sidebarStatusText === 'Active') {
+                        $avail = $driver['availability'] ?? 'Offline';
+                        $sidebarStatusText = in_array($avail, ['Online', 'Transit', 'Offline'], true) ? $avail : 'Offline';
+                        $statusClass = strtolower($sidebarStatusText);
+                    }
                     @endphp
                     <img src="{{ $avatarSrc }}" alt="Driver Avatar" class="rounded-circle" id="sidebar-avatar">
                     <span class="driver-status-dot {{ $statusClass }}" id="sidebar-status-dot"></span>
@@ -316,7 +415,7 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                 
                 <span class="status-badge-custom {{ $statusClass }}" id="sidebar-status-badge">
                     <span class="dot"></span>
-                    <span id="sidebar-status-text">{{ $driver['status'] }}</span>
+                    <span id="sidebar-status-text">{{ $sidebarStatusText }}</span>
                 </span>
             </div>
         </div>
@@ -472,13 +571,23 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                             
                             @php
                             $allAreas = [
-                                'downtown' => 'Downtown Zone',
-                                'northwest' => 'Northwest District',
-                                'southeast' => 'Southeast Hub',
-                                'uptown' => 'Uptown Area',
-                                'east' => 'East Side',
-                                'west' => 'West End',
-                                'midtown' => 'Midtown'
+                                'pattom' => 'Pattom',
+                                'kesavadasapuram' => 'Kesavadasapuram',
+                                'ulloor' => 'Ulloor',
+                                'murinjapalam' => 'Murinjapalam',
+                                'kowdiar' => 'Kowdiar',
+                                'palayam' => 'Palayam',
+                                'thampanoor' => 'Thampanoor',
+                                'vellayambalam' => 'Vellayambalam',
+                                'statue' => 'Statue',
+                                'sasthamangalam' => 'Sasthamangalam',
+                                'technopark' => 'Technopark',
+                                'peroorkada' => 'Peroorkada',
+                                'medical-college' => 'Medical College',
+                                'kazhakkoottam' => 'Kazhakkoottam',
+                                'east-fort' => 'East Fort',
+                                'vizhinjam' => 'Vizhinjam',
+                                'kovalam' => 'Kovalam',
                             ];
                             $assignedAreas = $driver['service_areas'] ?? [];
                             $primaryZone = $driver['zone'] ?? '';
@@ -531,28 +640,66 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                 </div>
                 
                 <div class="card-body px-4 pb-4 pt-1">
+                    @php
+                        $accountStatus = $driver['status'] ?? 'Pending';
+                        $availability = $driver['availability'] ?? 'Offline';
+                        $isSuspended = $accountStatus === 'Suspended';
+                        $isRejected = $accountStatus === 'Rejected';
+                        $isPending = $accountStatus === 'Pending';
+                        $isActiveAccount = $accountStatus === 'Active';
+                        $isOnline = $isActiveAccount && $availability === 'Online';
+                        $isTransit = $isActiveAccount && $availability === 'Transit';
+                        $isOffline = $isActiveAccount && $availability === 'Offline';
+                        $statusLabelClass = ($isSuspended || $isRejected)
+                            ? 'text-danger'
+                            : ($isPending ? 'text-warning' : ($isOnline ? 'text-success' : ($isTransit ? 'text-info' : 'text-secondary')));
+                    @endphp
                     <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 border rounded p-3" style="background-color: #ffffff; border-color: #e2e8f0; border-radius: 8px;">
                         <div>
                             <div style="font-size: 0.95rem;">
-                                <strong>Current Status:</strong> <span class="text-success fw-bold" id="action-status-label">{{ $driver['status'] }}</span>
+                                <strong>Current Status:</strong>
+                                <span class="fw-bold {{ $statusLabelClass }}" id="action-status-label"
+                                      data-account-status="{{ $accountStatus }}"
+                                      data-availability="{{ $availability }}">
+                                    @if ($isSuspended)
+                                        Suspended
+                                    @elseif ($isRejected)
+                                        Rejected
+                                    @elseif ($isPending)
+                                        Pending Review
+                                    @elseif ($isActiveAccount)
+                                        {{ $availability }}
+                                    @else
+                                        {{ $accountStatus }}
+                                    @endif
+                                </span>
                             </div>
                             <small class="text-muted d-block mt-1" id="action-status-desc">
-                                @if ($driver['status'] === 'Active')
+                                @if ($isSuspended)
+                                Driver account is temporarily suspended. They can be reactivated or deleted.
+                                @elseif ($isRejected)
+                                Zone driver application was rejected and is not an active fleet member.
+                                @elseif ($isPending)
+                                Zone driver application is awaiting admin approval.
+                                @elseif ($isOnline)
                                 Driver is currently online and accepting orders.
-                                @elseif ($driver['status'] === 'Offline')
+                                @elseif ($isTransit)
+                                Driver is on a delivery trip and currently in transit.
+                                @elseif ($isOffline)
                                 Driver is currently offline and not receiving orders.
-                                @elseif ($driver['status'] === 'Suspended')
-                                Driver account is temporarily suspended due to audit check.
                                 @else
-                                Driver account is pending document validation review.
+                                Driver account status needs attention.
                                 @endif
                             </small>
                         </div>
                         
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <button type="button" class="btn btn-outline-secondary" onclick="updateDriverStatusInline('Offline')" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;" id="btn-action-offline">Mark Offline</button>
-                            <button type="button" class="btn btn-outline-warning" onclick="updateDriverStatusInline('Suspended')" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600; border-color: #ffab00 !important; color: #ffab00 !important;" id="btn-action-suspend">Suspend Driver</button>
-                            <button type="button" class="btn btn-outline-danger" onclick="blockDriverAccount()" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;" id="btn-action-block">Block Account</button>
+                        <div class="d-flex align-items-center gap-2 flex-wrap" id="driver-action-buttons">
+                            <button type="button" class="btn btn-outline-success {{ $isActiveAccount && ! $isOnline ? '' : 'd-none' }}" onclick="updateDriverStatusInline('Online')" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;" id="btn-action-online">Mark Online</button>
+                            <button type="button" class="btn btn-outline-info {{ $isActiveAccount && ! $isTransit ? '' : 'd-none' }}" onclick="updateDriverStatusInline('Transit')" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600; border-color: #00bad1 !important; color: #00bad1 !important;" id="btn-action-transit">Mark Transit</button>
+                            <button type="button" class="btn btn-outline-secondary {{ $isActiveAccount && ! $isOffline ? '' : 'd-none' }}" onclick="updateDriverStatusInline('Offline')" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;" id="btn-action-offline">Mark Offline</button>
+                            <button type="button" class="btn btn-outline-success {{ $isSuspended || $isPending || $isRejected ? '' : 'd-none' }}" onclick="updateDriverStatusInline('Active')" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;" id="btn-action-activate">{{ $isPending || $isRejected ? 'Approve Driver' : 'Activate Driver' }}</button>
+                            <button type="button" class="btn btn-outline-danger {{ $isPending ? '' : 'd-none' }}" onclick="updateDriverStatusInline('Rejected')" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;" id="btn-action-reject">Reject Application</button>
+                            <button type="button" class="btn btn-outline-warning {{ $isActiveAccount ? '' : 'd-none' }}" onclick="updateDriverStatusInline('Suspended')" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600; border-color: #ffab00 !important; color: #ffab00 !important;" id="btn-action-suspend">Suspend Driver</button>
                         </div>
                     </div>
                 </div>
@@ -704,7 +851,7 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                             <tr>
                                 <td><span class="fw-semibold">#ORD-8924</span></td>
                                 <td>Mike Johnson</td>
-                                <td>5th Ave, Manhattan, NY</td>
+                                <td>12 Pattom Lane, Thiruvananthapuram</td>
                                 <td>Today, 02:45 PM</td>
                                 <td>$45.50</td>
                                 <td><span class="badge bg-label-success rounded-pill" style="background-color: rgba(40, 199, 111, 0.1) !important; color: #28c76f !important;">Delivered</span></td>
@@ -712,7 +859,7 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                             <tr>
                                 <td><span class="fw-semibold">#ORD-8910</span></td>
                                 <td>Sarah Connor</td>
-                                <td>12 Ocean Pkwy, Brooklyn, NY</td>
+                                <td>Kowdiar Palace Rd, Thiruvananthapuram</td>
                                 <td>Yesterday, 11:30 AM</td>
                                 <td>$28.00</td>
                                 <td><span class="badge bg-label-success rounded-pill" style="background-color: rgba(40, 199, 111, 0.1) !important; color: #28c76f !important;">Delivered</span></td>
@@ -720,7 +867,7 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                             <tr>
                                 <td><span class="fw-semibold">#ORD-8854</span></td>
                                 <td>Robert Davis</td>
-                                <td>102 Broadway, Manhattan, NY</td>
+                                <td>Palayam Market Rd, Thiruvananthapuram</td>
                                 <td>14 Jul 2026, 06:12 PM</td>
                                 <td>$37.20</td>
                                 <td><span class="badge bg-label-success rounded-pill" style="background-color: rgba(40, 199, 111, 0.1) !important; color: #28c76f !important;">Delivered</span></td>
@@ -728,7 +875,7 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                             <tr>
                                 <td><span class="fw-semibold">#ORD-8821</span></td>
                                 <td>Alice Cooper</td>
-                                <td>45 Queens Blvd, Forest Hills, NY</td>
+                                <td>Technopark Phase 1, Kazhakkoottam</td>
                                 <td>13 Jul 2026, 01:20 PM</td>
                                 <td>$52.10</td>
                                 <td><span class="badge bg-label-success rounded-pill" style="background-color: rgba(40, 199, 111, 0.1) !important; color: #28c76f !important;">Delivered</span></td>
@@ -790,13 +937,23 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                     </div>
                     @php
                     $allAreas = [
-                        'downtown' => 'Downtown Zone',
-                        'northwest' => 'Northwest District',
-                        'southeast' => 'Southeast Hub',
-                        'uptown' => 'Uptown Area',
-                        'east' => 'East Side',
-                        'west' => 'West End',
-                        'midtown' => 'Midtown'
+                        'pattom' => 'Pattom',
+                        'kesavadasapuram' => 'Kesavadasapuram',
+                        'ulloor' => 'Ulloor',
+                        'murinjapalam' => 'Murinjapalam',
+                        'kowdiar' => 'Kowdiar',
+                        'palayam' => 'Palayam',
+                        'thampanoor' => 'Thampanoor',
+                        'vellayambalam' => 'Vellayambalam',
+                        'statue' => 'Statue',
+                        'sasthamangalam' => 'Sasthamangalam',
+                        'technopark' => 'Technopark',
+                        'peroorkada' => 'Peroorkada',
+                        'medical-college' => 'Medical College',
+                        'kazhakkoottam' => 'Kazhakkoottam',
+                        'east-fort' => 'East Fort',
+                        'vizhinjam' => 'Vizhinjam',
+                        'kovalam' => 'Kovalam',
                     ];
                     $assignedAreas = $driver['service_areas'] ?? [];
                     $primaryZone = $driver['zone'] ?? '';
@@ -839,25 +996,59 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
 </div>
 
 <script>
-    // SweetAlert2 Toast configuration
-    const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
+    function getToastStack() {
+        let stack = document.getElementById('app-toast-stack');
+        if (!stack) {
+            stack = document.createElement('div');
+            stack.id = 'app-toast-stack';
+            stack.className = 'app-toast-stack';
+            document.body.appendChild(stack);
         }
-    });
+        return stack;
+    }
 
     function showToast(message, icon = 'success') {
-        Toast.fire({
-            icon: icon,
-            title: message
-        });
+        const type = ['success', 'error', 'warning', 'info'].includes(icon) ? icon : 'success';
+        const icons = {
+            success: 'bx-check',
+            error: 'bx-x',
+            warning: 'bx-error',
+            info: 'bx-info-circle',
+        };
+
+        const toast = document.createElement('div');
+        toast.className = `app-toast app-toast--${type}`;
+        toast.setAttribute('role', 'status');
+        toast.innerHTML = `
+            <span class="app-toast__icon"><i class="bx ${icons[type]}"></i></span>
+            <span class="app-toast__msg"></span>
+        `;
+        toast.querySelector('.app-toast__msg').textContent = message;
+
+        const stack = getToastStack();
+        stack.appendChild(toast);
+
+        let timer;
+        const dismiss = () => {
+            if (toast.classList.contains('is-leaving')) return;
+            clearTimeout(timer);
+            toast.classList.add('is-leaving');
+            setTimeout(() => toast.remove(), 220);
+        };
+        const schedule = (ms) => {
+            clearTimeout(timer);
+            timer = setTimeout(dismiss, ms);
+        };
+
+        schedule(2600);
+        toast.addEventListener('mouseenter', () => clearTimeout(timer));
+        toast.addEventListener('mouseleave', () => schedule(1200));
+        toast.addEventListener('click', dismiss);
     }
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const profileUpdateUrl = @json(url('/fleet/drivers/' . $driverId . '/profile'));
+    const profileStatusUrl = @json(url('/fleet/drivers/' . $driverId . '/status'));
 
     // Switch between profile navigation tabs
     function switchProfileTab(tabName) {
@@ -910,43 +1101,111 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
         document.getElementById('save-details-btn').classList.remove('d-none');
     }
 
-    // Save edited Personal Details changes
-    function savePersonalInfoChanges() {
+    function lockPersonalInfoInputs() {
         isEditMode = false;
-        
-        const fullname = document.getElementById('info-fullname').value;
-        const phone = document.getElementById('info-phone').value;
-        
-        // Update sidebar as well
-        document.getElementById('sidebar-driver-name').textContent = fullname;
-        
-        // Lock inputs
+
         document.getElementById('info-fullname').setAttribute('disabled', 'true');
         document.getElementById('info-phone').setAttribute('disabled', 'true');
         document.getElementById('info-email').setAttribute('disabled', 'true');
         document.getElementById('info-address').setAttribute('disabled', 'true');
-        
+
         const agencyName = document.getElementById('info-agency-name');
         if (agencyName) agencyName.setAttribute('disabled', 'true');
         const agencyId = document.getElementById('info-agency-id');
         if (agencyId) agencyId.setAttribute('disabled', 'true');
-        
+
         const cardInd = document.getElementById('cardPartnerInd');
         const cardThird = document.getElementById('cardPartnerThird');
         if (cardInd) cardInd.style.cursor = 'default';
         if (cardThird) cardThird.style.cursor = 'default';
-        
+
         document.getElementById('edit-details-btn').classList.remove('d-none');
         document.getElementById('save-details-btn').classList.add('d-none');
-        
-        showToast('Personal information and operational details updated successfully!');
+    }
+
+    // Save edited Personal Details changes
+    async function savePersonalInfoChanges() {
+        const saveBtn = document.getElementById('save-details-btn');
+        const fullname = document.getElementById('info-fullname').value.trim();
+        const phone = document.getElementById('info-phone').value.trim();
+        const email = document.getElementById('info-email').value.trim();
+        const address = document.getElementById('info-address').value.trim();
+
+        if (!fullname || !phone || !email) {
+            showToast('Name, phone, and email are required.', 'error');
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
+        try {
+            const response = await fetch(profileUpdateUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    name: fullname,
+                    phone: phone,
+                    email: email,
+                    address: address,
+                }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok || !data.status) {
+                const firstError = data.errors
+                    ? Object.values(data.errors).flat()[0]
+                    : null;
+                throw new Error(firstError || data.message || 'Failed to update profile.');
+            }
+
+            const driver = data.driver || {};
+            if (driver.name) {
+                document.getElementById('info-fullname').value = driver.name;
+                document.getElementById('sidebar-driver-name').textContent = driver.name;
+            }
+            if (driver.phone) {
+                document.getElementById('info-phone').value = driver.phone;
+            }
+            if (driver.email) {
+                document.getElementById('info-email').value = driver.email;
+            }
+            if (driver.address !== undefined) {
+                document.getElementById('info-address').value = driver.address || '';
+            }
+
+            lockPersonalInfoInputs();
+            showToast(data.message || 'Personal information updated successfully!');
+        } catch (error) {
+            showToast(error.message || 'Failed to update profile.', 'error');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        }
     }
 
     // Update status inline
     function updateDriverStatusInline(newStatus) {
+        const labels = {
+            Online: 'online',
+            Offline: 'offline',
+            Transit: 'in transit',
+            Active: 'active',
+            Suspended: 'suspended',
+            Pending: 'pending review',
+            Rejected: 'rejected',
+        };
+        const label = labels[newStatus] || newStatus.toLowerCase();
+
         Swal.fire({
             title: 'Change Driver Status?',
-            text: `Are you sure you want to change the status of this driver to ${newStatus}?`,
+            text: `Are you sure you want to mark this driver as ${label}?`,
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Yes, change it',
@@ -958,61 +1217,148 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
             buttonsStyling: false
         }).then((result) => {
             if (result.isConfirmed) {
-                applyStatusUpdate(newStatus);
+                persistStatusUpdate(newStatus);
             }
         });
+    }
+
+    function statusPayloadFor(action) {
+        if (action === 'Online' || action === 'Offline' || action === 'Transit') {
+            return { availability: action };
+        }
+        if (action === 'Suspended') {
+            return { status: 'Suspended', availability: 'Offline' };
+        }
+        if (action === 'Rejected') {
+            return { status: 'Rejected', availability: 'Offline' };
+        }
+        if (action === 'Pending') {
+            return { status: 'Pending', availability: 'Offline' };
+        }
+        if (action === 'Active') {
+            return { status: 'Active', availability: 'Offline' };
+        }
+        return { status: action };
+    }
+
+    async function persistStatusUpdate(newStatus) {
+        try {
+            const response = await fetch(profileStatusUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify(statusPayloadFor(newStatus)),
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok || !data.status) {
+                throw new Error(data.message || 'Failed to update status.');
+            }
+
+            const accountStatus = data.driver?.status || (['Active', 'Suspended', 'Pending', 'Rejected'].includes(newStatus) ? newStatus : null);
+            const availability = data.driver?.availability
+                || (['Online', 'Offline', 'Transit'].includes(newStatus) ? newStatus : null);
+
+            applyStatusUpdate(accountStatus, availability);
+        } catch (error) {
+            showToast(error.message || 'Failed to update status.', 'error');
+        }
+    }
+
+    function setButtonVisible(id, visible) {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.classList.toggle('d-none', !visible);
+    }
+
+    function refreshActionButtons(accountStatus, availability) {
+        const isSuspended = accountStatus === 'Suspended';
+        const isRejected = accountStatus === 'Rejected';
+        const isActive = accountStatus === 'Active';
+        const isPending = accountStatus === 'Pending';
+        const isOnline = isActive && availability === 'Online';
+        const isTransit = isActive && availability === 'Transit';
+        const isOffline = isActive && availability === 'Offline';
+
+        setButtonVisible('btn-action-online', isActive && !isOnline);
+        setButtonVisible('btn-action-transit', isActive && !isTransit);
+        setButtonVisible('btn-action-offline', isActive && !isOffline);
+        setButtonVisible('btn-action-activate', isSuspended || isPending || isRejected);
+        setButtonVisible('btn-action-reject', isPending);
+        setButtonVisible('btn-action-suspend', isActive);
+
+        const activateBtn = document.getElementById('btn-action-activate');
+        if (activateBtn) {
+            activateBtn.textContent = (isPending || isRejected) ? 'Approve Driver' : 'Activate Driver';
+        }
     }
 
     // Apply status update UI updates
-    function applyStatusUpdate(newStatus) {
-        // Update status dot classes
-        const dot = document.getElementById('sidebar-status-dot');
-        dot.className = 'driver-status-dot ' + newStatus.toLowerCase();
-        
-        // Update status badges
-        const badge = document.getElementById('sidebar-status-badge');
-        badge.className = 'status-badge-custom ' + newStatus.toLowerCase();
-        document.getElementById('sidebar-status-text').textContent = newStatus;
-        
-        // Update Action status label
+    function applyStatusUpdate(accountStatus, availability) {
         const statusLabel = document.getElementById('action-status-label');
-        statusLabel.textContent = newStatus;
-        
-        const descLabel = document.getElementById('action-status-desc');
-        if (newStatus === 'Active') {
-            statusLabel.className = 'text-success fw-bold';
-            descLabel.textContent = 'Driver is currently online and accepting orders.';
-        } else if (newStatus === 'Offline') {
-            statusLabel.className = 'text-secondary fw-bold';
-            descLabel.textContent = 'Driver is currently offline and not receiving orders.';
-        } else if (newStatus === 'Suspended') {
-            statusLabel.className = 'text-danger fw-bold';
-            descLabel.textContent = 'Driver account is temporarily suspended due to audit check.';
-        }
-        
-        showToast(`Driver status updated to ${newStatus}!`, 'info');
-    }
+        const prevAccount = statusLabel?.dataset.accountStatus || 'Active';
+        const prevAvailability = statusLabel?.dataset.availability || 'Offline';
 
-    // Block account action button
-    function blockDriverAccount() {
-        Swal.fire({
-            title: 'Block Driver Account?',
-            text: 'This driver will be permanently blocked from accessing the system. Are you sure?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, block account!',
-            cancelButtonText: 'Cancel',
-            customClass: {
-                confirmButton: 'btn btn-danger me-2 px-3 py-2',
-                cancelButton: 'btn btn-outline-secondary px-3 py-2'
-            },
-            buttonsStyling: false
-        }).then((result) => {
-            if (result.isConfirmed) {
-                applyStatusUpdate('Suspended');
-                showToast('Driver account has been suspended and blocked.', 'warning');
+        const nextAccount = accountStatus || prevAccount;
+        const nextAvailability = availability || prevAvailability;
+
+        statusLabel.dataset.accountStatus = nextAccount;
+        statusLabel.dataset.availability = nextAvailability;
+
+        let displayStatus = nextAccount;
+        let desc = 'Driver account status needs attention.';
+        let labelClass = 'text-secondary fw-bold';
+        let sidebarStatus = nextAccount;
+
+        if (nextAccount === 'Suspended') {
+            displayStatus = 'Suspended';
+            sidebarStatus = 'Suspended';
+            labelClass = 'text-danger fw-bold';
+            desc = 'Driver account is temporarily suspended. They can be reactivated or deleted.';
+        } else if (nextAccount === 'Rejected') {
+            displayStatus = 'Rejected';
+            sidebarStatus = 'Rejected';
+            labelClass = 'text-danger fw-bold';
+            desc = 'Zone driver application was rejected and is not an active fleet member.';
+        } else if (nextAccount === 'Active') {
+            displayStatus = nextAvailability || 'Offline';
+            sidebarStatus = displayStatus;
+            if (nextAvailability === 'Online') {
+                labelClass = 'text-success fw-bold';
+                desc = 'Driver is currently online and accepting orders.';
+            } else if (nextAvailability === 'Transit') {
+                labelClass = 'text-info fw-bold';
+                desc = 'Driver is on a delivery trip and currently in transit.';
+            } else {
+                labelClass = 'text-secondary fw-bold';
+                desc = 'Driver is currently offline and not receiving orders.';
             }
-        });
+        } else if (nextAccount === 'Pending') {
+            displayStatus = 'Pending Review';
+            sidebarStatus = 'Pending';
+            labelClass = 'text-warning fw-bold';
+            desc = 'Zone driver application is awaiting admin approval.';
+        }
+
+        const dot = document.getElementById('sidebar-status-dot');
+        dot.className = 'driver-status-dot ' + sidebarStatus.toLowerCase();
+
+        const badge = document.getElementById('sidebar-status-badge');
+        badge.className = 'status-badge-custom ' + sidebarStatus.toLowerCase();
+        document.getElementById('sidebar-status-text').textContent = displayStatus;
+
+        statusLabel.className = labelClass;
+        statusLabel.textContent = displayStatus;
+
+        document.getElementById('action-status-desc').textContent = desc;
+        refreshActionButtons(nextAccount, nextAvailability);
+
+        showToast(`Driver status updated to ${displayStatus}!`, 'info');
     }
 
     // Modal Operations
@@ -1089,7 +1435,7 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
     };
 
     window.handleProfilePrimaryRadioChange = function(key) {
-        const keys = ['downtown', 'northwest', 'southeast', 'uptown', 'east', 'west', 'midtown'];
+        const keys = ['pattom', 'kesavadasapuram', 'ulloor', 'murinjapalam', 'kowdiar', 'palayam', 'thampanoor', 'vellayambalam', 'statue', 'sasthamangalam', 'technopark', 'peroorkada', 'medical-college', 'kazhakkoottam', 'east-fort', 'vizhinjam', 'kovalam'];
         
         keys.forEach(k => {
             const chk = document.getElementById(`chk-${k}`);
@@ -1122,7 +1468,7 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
     function saveAssignedAreas(e) {
         e.preventDefault();
         
-        const keys = ['downtown', 'northwest', 'southeast', 'uptown', 'east', 'west', 'midtown'];
+        const keys = ['pattom', 'kesavadasapuram', 'ulloor', 'murinjapalam', 'kowdiar', 'palayam', 'thampanoor', 'vellayambalam', 'statue', 'sasthamangalam', 'technopark', 'peroorkada', 'medical-college', 'kazhakkoottam', 'east-fort', 'vizhinjam', 'kovalam'];
         
         keys.forEach(k => {
             const chkModal = document.getElementById(`chk-${k}`);

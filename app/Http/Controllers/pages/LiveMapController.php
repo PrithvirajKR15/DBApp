@@ -44,6 +44,7 @@ class LiveMapController extends Controller
         return view('content.pages.live-map', [
             'drivers' => $drivers,
             'stats' => $stats,
+            'googleMapsKey' => config('services.google.maps_key'),
         ]);
     }
 
@@ -61,7 +62,7 @@ class LiveMapController extends Controller
             'name' => $d->name,
             'status' => $status,
             'statusClass' => strtolower($status),
-            'zone' => $zone?->region ?? 'manhattan',
+            'zone' => $zone?->region ?? 'central',
             'image' => $d->image ?? '1.png',
             'lat' => (float) ($location?->lat ?? 0),
             'lng' => (float) ($location?->lng ?? 0),

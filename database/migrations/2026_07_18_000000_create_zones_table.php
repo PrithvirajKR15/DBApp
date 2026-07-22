@@ -9,7 +9,7 @@ return new class extends Migration
     /**
      * Delivery zones. Independent ("zone") drivers are assigned to one or more
      * zones via the driver_assignments table; store drivers are not zoned.
-     * `region` groups zones for the live-map filter (e.g. manhattan / brooklyn).
+     * `region` groups zones for the live-map filter (e.g. north / central / south).
      */
     public function up(): void
     {

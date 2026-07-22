@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Driver profile. Identity (name, email, phone, image, code, status, ...) lives
- * on the related User; operational availability (Online/Offline) lives here;
+ * on the related User; operational availability (Online/Offline/Transit) lives here;
  * live location lives in driver_locations; zones in driver_assignments;
  * earnings in driver_earnings; per-delivery figures on orders. This model only
  * holds durable driver attributes.

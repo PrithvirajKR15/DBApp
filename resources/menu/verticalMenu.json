@@ -37,13 +37,9 @@
     },
     {
       "url": "/fleet/approvals",
-      "name": "Approvals",
+      "name": "Pending Approvals",
       "icon": "menu-icon icon-base bx bx-check-shield",
-      "slug": "fleet-approvals",
-      "badge": [
-        "danger",
-        "12"
-      ]
+      "slug": "fleet-approvals"
     },
     {
       "menuHeader": "OPERATIONS"

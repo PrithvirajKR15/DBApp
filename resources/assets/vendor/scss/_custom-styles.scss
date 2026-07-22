@@ -1,5 +1,49 @@
 // This file is used for writing your custom styles
 
-// .card {
-//    background-color: #fd0000;
-//  }
+// Table headers — light orange matching active sidebar menu
+$table-head-bg: #ffe5d6; // same as --bs-primary-bg-subtle for #ff5c00
+$table-head-color: #8a3b00;
+
+.table > :not(caption) > thead,
+.table thead {
+  --bs-table-bg: #{$table-head-bg} !important;
+  --bs-table-bg-type: #{$table-head-bg} !important;
+  --bs-table-bg-state: #{$table-head-bg} !important;
+  --bs-table-accent-bg: #{$table-head-bg} !important;
+  --bs-table-color: #{$table-head-color};
+  --bs-table-border-color: rgba(255, 92, 0, 0.18);
+  background-color: #{$table-head-bg} !important;
+
+  > tr,
+  > tr.table-light {
+    --bs-table-bg: #{$table-head-bg} !important;
+    --bs-table-bg-type: #{$table-head-bg} !important;
+    --bs-table-bg-state: #{$table-head-bg} !important;
+    --bs-table-accent-bg: #{$table-head-bg} !important;
+    background-color: #{$table-head-bg} !important;
+  }
+
+  > tr > th,
+  > tr > td,
+  > tr.table-light > th,
+  > tr.table-light > td {
+    --bs-table-bg: #{$table-head-bg} !important;
+    --bs-table-bg-type: #{$table-head-bg} !important;
+    --bs-table-bg-state: #{$table-head-bg} !important;
+    --bs-table-accent-bg: #{$table-head-bg} !important;
+    background-color: #{$table-head-bg} !important;
+    color: #{$table-head-color} !important;
+    box-shadow: none !important;
+    border-bottom-color: rgba(255, 92, 0, 0.18) !important;
+  }
+}
+
+.table-light {
+  --bs-table-color: #{$table-head-color} !important;
+  --bs-table-bg: #{$table-head-bg} !important;
+  --bs-table-border-color: rgba(255, 92, 0, 0.18) !important;
+  --bs-table-striped-bg: #fff0e6 !important;
+  --bs-table-active-bg: #ffe0c8 !important;
+  --bs-table-hover-bg: #ffe8d4 !important;
+  background-color: #{$table-head-bg} !important;
+}

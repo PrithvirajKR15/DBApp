@@ -239,14 +239,14 @@
             </div>
             <div class="card-body">
                 <ul class="p-0 m-0 list-unstyled">
-                    <!-- Area 1: Downtown Zone -->
+                    <!-- Area 1: Pattom -->
                     <li class="d-flex mb-4 align-items-center">
                         <div class="avatar flex-shrink-0 me-3">
-                            <span class="avatar-initial rounded-circle bg-label-primary d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">DT</span>
+                            <span class="avatar-initial rounded-circle bg-label-primary d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">PT</span>
                         </div>
                         <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                             <div class="me-2">
-                                <h6 class="mb-0 fw-semibold">Downtown Zone</h6>
+                                <h6 class="mb-0 fw-semibold">Pattom</h6>
                                 <small class="text-muted">12 active drivers</small>
                             </div>
                             <div class="user-progress text-end">
@@ -255,14 +255,14 @@
                             </div>
                         </div>
                     </li>
-                    <!-- Area 2: Northwest District -->
+                    <!-- Area 2: Kowdiar -->
                     <li class="d-flex mb-4 align-items-center">
                         <div class="avatar flex-shrink-0 me-3">
-                            <span class="avatar-initial rounded-circle bg-label-secondary d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px; background-color: rgba(224, 76, 238, 0.1) !important; color: #e04cee !important;">NW</span>
+                            <span class="avatar-initial rounded-circle bg-label-secondary d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px; background-color: rgba(224, 76, 238, 0.1) !important; color: #e04cee !important;">KW</span>
                         </div>
                         <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                             <div class="me-2">
-                                <h6 class="mb-0 fw-semibold">Northwest District</h6>
+                                <h6 class="mb-0 fw-semibold">Kowdiar</h6>
                                 <small class="text-muted">8 active drivers</small>
                             </div>
                             <div class="user-progress text-end">
@@ -271,14 +271,14 @@
                             </div>
                         </div>
                     </li>
-                    <!-- Area 3: Southeast Hub -->
+                    <!-- Area 3: East Fort -->
                     <li class="d-flex mb-4 align-items-center">
                         <div class="avatar flex-shrink-0 me-3">
-                            <span class="avatar-initial rounded-circle bg-label-success d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">SE</span>
+                            <span class="avatar-initial rounded-circle bg-label-success d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">EF</span>
                         </div>
                         <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                             <div class="me-2">
-                                <h6 class="mb-0 fw-semibold">Southeast Hub</h6>
+                                <h6 class="mb-0 fw-semibold">East Fort</h6>
                                 <small class="text-muted">5 active drivers</small>
                             </div>
                             <div class="user-progress text-end">
@@ -287,14 +287,14 @@
                             </div>
                         </div>
                     </li>
-                    <!-- Area 4: East Side -->
+                    <!-- Area 4: Technopark -->
                     <li class="d-flex align-items-center">
                         <div class="avatar flex-shrink-0 me-3">
-                            <span class="avatar-initial rounded-circle bg-label-warning d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">ES</span>
+                            <span class="avatar-initial rounded-circle bg-label-warning d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">TP</span>
                         </div>
                         <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                             <div class="me-2">
-                                <h6 class="mb-0 fw-semibold">East Side</h6>
+                                <h6 class="mb-0 fw-semibold">Technopark</h6>
                                 <small class="text-muted">3 active drivers</small>
                             </div>
                             <div class="user-progress text-end">

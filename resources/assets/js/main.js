@@ -34,6 +34,9 @@ document.addEventListener('DOMContentLoaded', function () {
     item.addEventListener('click', event => {
       event.preventDefault();
       window.Helpers.toggleCollapsed();
+      if (!window.Helpers.isSmallScreen()) {
+        localStorage.setItem('templateCustomizer-' + document.documentElement.getAttribute('data-template') + '--LayoutCollapsed', String(window.Helpers.isCollapsed()));
+      }
     });
   });
 
@@ -51,7 +54,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     elem.onmouseleave = function () {
       // Clear any timers set to timeout
-      document.querySelector('.layout-menu-toggle').classList.remove('d-block');
+      const menuToggle = document.querySelector('#layout-menu .layout-menu-toggle');
+      if (menuToggle) menuToggle.classList.remove('d-block');
       clearTimeout(timeout);
     };
   };
@@ -59,7 +63,8 @@ document.addEventListener('DOMContentLoaded', function () {
     delay(document.getElementById('layout-menu'), function () {
       // not for small screen
       if (!Helpers.isSmallScreen()) {
-        document.querySelector('.layout-menu-toggle').classList.add('d-block');
+        const menuToggle = document.querySelector('#layout-menu .layout-menu-toggle');
+        if (menuToggle) menuToggle.classList.add('d-block');
       }
     });
   }
@@ -118,10 +123,11 @@ document.addEventListener('DOMContentLoaded', function () {
     return;
   }
 
-  // If current layout is vertical and current window screen is > small
-
-  // Auto update menu collapsed/expanded based on the themeConfig
-      window.Helpers.setCollapsed(true, false);
+  // Restore desktop menu collapsed/expanded preference (default: expanded)
+  const collapsedPref = localStorage.getItem(
+    'templateCustomizer-' + document.documentElement.getAttribute('data-template') + '--LayoutCollapsed'
+  );
+  window.Helpers.setCollapsed(collapsedPref === 'true', false);
 })();
 // Utils
 function isMacOS() {

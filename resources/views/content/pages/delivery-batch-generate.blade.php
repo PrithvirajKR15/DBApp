@@ -209,11 +209,11 @@ $batchDrivers = $data['drivers'] ?? [];
                 <div class="col-12 col-md-4">
                     <select class="form-select" id="filter-region" style="border-radius: 8px; height: 38px; border-color: #e0e2e7; font-size: 0.88rem;">
                         <option value="">All Regions</option>
-                        <option>North Zone</option>
-                        <option>Central Zone</option>
-                        <option>West Zone</option>
-                        <option>South Zone</option>
-                        <option>East Zone</option>
+                        <option>Pattom</option>
+                        <option>Kowdiar</option>
+                        <option>Medical College</option>
+                        <option>East Fort</option>
+                        <option>Technopark</option>
                     </select>
                 </div>
             </div>
@@ -404,13 +404,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let previewMap = null;
 
     function loadSavedSettings() {
-        try {
-            const saved = JSON.parse(localStorage.getItem('deliverease_batch_settings') || 'null');
-            if (!saved) return;
-            if (saved.orders_per_batch) document.getElementById('cfg-orders-per-batch').value = saved.orders_per_batch;
-            if (saved.max_distance_km) document.getElementById('cfg-max-distance').value = saved.max_distance_km;
-            if (saved.max_route_minutes) document.getElementById('cfg-max-duration').value = saved.max_route_minutes;
-        } catch (e) { /* ignore */ }
+        if (DEFAULT_SETTINGS.orders_per_batch) document.getElementById('cfg-orders-per-batch').value = DEFAULT_SETTINGS.orders_per_batch;
+        if (DEFAULT_SETTINGS.max_distance_km) document.getElementById('cfg-max-distance').value = DEFAULT_SETTINGS.max_distance_km;
+        if (DEFAULT_SETTINGS.max_route_minutes) document.getElementById('cfg-max-duration').value = DEFAULT_SETTINGS.max_route_minutes;
     }
     loadSavedSettings();
 
@@ -454,7 +450,6 @@ document.addEventListener('DOMContentLoaded', function () {
             ordersPerBatch: parseInt(document.getElementById('cfg-orders-per-batch').value, 10) || 5,
             maxDistanceKm: parseFloat(document.getElementById('cfg-max-distance').value) || 10,
             maxRouteMinutes: parseInt(document.getElementById('cfg-max-duration').value, 10) || 45,
-            // Store-driver flow: direct assignment, no acceptance window or zone fallback
             preferStoreDrivers: true,
             autoFallbackZone: false,
         };
@@ -606,7 +601,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 400);
     });
 
-    document.getElementById('btn-confirm').addEventListener('click', () => {
+    document.getElementById('btn-confirm').addEventListener('click', async function () {
+        const btn = this;
+        if (!generatedBatches.length || !selectedStore) return;
+
         const payload = {
             store_id: selectedStore.id,
             store_name: selectedStore.name,
@@ -614,8 +612,30 @@ document.addEventListener('DOMContentLoaded', function () {
             config: getConfig(),
             batches: generatedBatches,
         };
-        sessionStorage.setItem('deliverease_generated_batches', JSON.stringify(payload));
-        window.location.href = '{{ url('/operations/delivery-batches') }}?generated=1';
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="gen-spinner me-1"></span> Saving…';
+
+        try {
+            const res = await fetch(@json(url('/operations/delivery-batches')), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || 'Failed to save batches.');
+            }
+            window.location.href = '{{ url('/operations/delivery-batches') }}?generated=1';
+        } catch (err) {
+            alert(err.message || 'Failed to save batches.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bx bx-check me-1"></i>Confirm & Save Batches';
+        }
     });
 });
 </script>

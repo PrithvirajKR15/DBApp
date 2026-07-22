@@ -5,8 +5,8 @@ use Illuminate\Support\Facades\Route;
 
 <!-- ! Not required for layout-without-menu -->
 @if(!isset($navbarHideToggle))
-<div class="layout-menu-toggle navbar-nav align-items-xl-center me-4 me-xl-0 {{ isset($contentNavbar) ?' d-xl-none ' : '' }}">
-    <a class="nav-item nav-link px-0 me-xl-6" href="javascript:void(0)">
+<div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-4">
+    <a class="nav-item nav-link px-0" href="javascript:void(0)" title="Toggle side menu" aria-label="Toggle side menu">
         <i class="icon-base bx bx-menu icon-md"></i>
     </a>
 </div>

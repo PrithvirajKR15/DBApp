@@ -111,25 +111,15 @@ $settings = $data['settings'] ?? [];
                 </div>
             </div>
 
-            <!-- Driver priority -->
+            <!-- Driver assignment -->
             <div class="settings-card card shadow-none mb-3">
                 <div class="card-header">
-                    <h6 class="mb-0 fw-bold text-body"><i class="bx bx-group me-2" style="color: #ff7a00;"></i>Driver Assignment Priority</h6>
+                    <h6 class="mb-0 fw-bold text-body"><i class="bx bx-group me-2" style="color: #ff7a00;"></i>Driver Assignment</h6>
                 </div>
                 <div class="card-body p-4">
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="prefer-store" name="prefer_store_drivers" @checked($settings['prefer_store_drivers'])>
-                        <label class="form-check-label fw-semibold" for="prefer-store">Prioritize store drivers</label>
-                        <div class="text-muted" style="font-size: 0.85rem; margin-left: 2.2rem;">Store-linked drivers are offered first for batches from their hub.</div>
-                    </div>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="fallback-zone" name="auto_fallback_zone" @checked($settings['auto_fallback_zone'])>
-                        <label class="form-check-label fw-semibold" for="fallback-zone">Fallback to nearest zone drivers</label>
-                        <div class="text-muted" style="font-size: 0.85rem; margin-left: 2.2rem;">If no store driver is available, offer the batch to zone drivers ranked by proximity to the route.</div>
-                    </div>
-                    <div class="hint-box mt-3">
+                    <div class="hint-box">
                         <i class="bx bx-info-circle" style="color: #ff7a00;"></i>
-                        Batches are created by road-distance proximity and route efficiency — not fixed zone boundaries. Zones are used for reporting and driver fallback only.
+                        Delivery batches are assigned only to <strong>store drivers</strong> linked to the selected hub. Zone/individual drivers are not used for batch delivery.
                     </div>
                 </div>
             </div>
@@ -158,13 +148,9 @@ $settings = $data['settings'] ?? [];
                             <span class="text-muted">Max duration</span>
                             <span class="fw-semibold text-body" id="sum-duration">{{ $settings['max_route_minutes'] ?? 45 }} min</span>
                         </li>
-                        <li class="d-flex justify-content-between mb-2">
-                            <span class="text-muted">Store priority</span>
-                            <span class="fw-semibold text-body" id="sum-store">{{ $settings['prefer_store_drivers'] ? 'On' : 'Off' }}</span>
-                        </li>
                         <li class="d-flex justify-content-between">
-                            <span class="text-muted">Zone fallback</span>
-                            <span class="fw-semibold text-body" id="sum-zone">{{ $settings['auto_fallback_zone'] ? 'On' : 'Off' }}</span>
+                            <span class="text-muted">Drivers</span>
+                            <span class="fw-semibold text-body">Store only</span>
                         </li>
                     </ul>
                     <button type="button" class="btn btn-primary-orange w-100 mb-2" id="save-settings" style="border-radius: 8px;">
@@ -174,7 +160,7 @@ $settings = $data['settings'] ?? [];
                         Generate Batches
                     </a>
                     <div class="alert alert-success mt-3 d-none mb-0" id="save-success" style="border-radius: 8px; font-size: 0.85rem;">
-                        Configuration saved (demo — not persisted yet).
+                        Configuration saved.
                     </div>
                 </div>
             </div>
@@ -188,8 +174,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const accept = document.getElementById('accept-minutes');
     const distance = document.getElementById('max-distance');
     const duration = document.getElementById('max-duration');
-    const preferStore = document.getElementById('prefer-store');
-    const fallbackZone = document.getElementById('fallback-zone');
+    const slot = document.getElementById('default-slot');
 
     function getSettings() {
         return {
@@ -197,45 +182,53 @@ document.addEventListener('DOMContentLoaded', function () {
             accept_minutes: parseInt(accept.value, 10),
             max_distance_km: parseFloat(distance.value),
             max_route_minutes: parseInt(duration.value, 10),
-            prefer_store_drivers: preferStore.checked,
-            auto_fallback_zone: fallbackZone.checked,
+            slot_window: slot?.value || null,
         };
     }
-
-    function loadSettings() {
-        try {
-            const saved = JSON.parse(localStorage.getItem('deliverease_batch_settings') || 'null');
-            if (!saved) return;
-            if (saved.orders_per_batch) orders.value = saved.orders_per_batch;
-            if (saved.accept_minutes) accept.value = saved.accept_minutes;
-            if (saved.max_distance_km) distance.value = saved.max_distance_km;
-            if (saved.max_route_minutes) duration.value = saved.max_route_minutes;
-            if (saved.prefer_store_drivers != null) preferStore.checked = saved.prefer_store_drivers;
-            if (saved.auto_fallback_zone != null) fallbackZone.checked = saved.auto_fallback_zone;
-        } catch (e) { /* ignore */ }
-    }
-    loadSettings();
 
     function syncSummary() {
         document.getElementById('sum-orders').textContent = orders.value;
         document.getElementById('sum-accept').textContent = accept.value + ' min';
         document.getElementById('sum-distance').textContent = distance.value + ' km';
         document.getElementById('sum-duration').textContent = duration.value + ' min';
-        document.getElementById('sum-store').textContent = preferStore.checked ? 'On' : 'Off';
-        document.getElementById('sum-zone').textContent = fallbackZone.checked ? 'On' : 'Off';
     }
 
-    [orders, accept, distance, duration, preferStore, fallbackZone].forEach(el => {
+    [orders, accept, distance, duration].forEach(el => {
         el.addEventListener('input', syncSummary);
         el.addEventListener('change', syncSummary);
     });
     syncSummary();
 
-    document.getElementById('save-settings').addEventListener('click', function () {
-        localStorage.setItem('deliverease_batch_settings', JSON.stringify(getSettings()));
+    document.getElementById('save-settings').addEventListener('click', async function () {
+        const btn = this;
         const box = document.getElementById('save-success');
-        box.classList.remove('d-none');
-        setTimeout(() => box.classList.add('d-none'), 3000);
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(@json(url('/operations/delivery-batches/settings')), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify(getSettings()),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || 'Failed to save.');
+            }
+            box.textContent = data.message || 'Configuration saved.';
+            box.classList.remove('d-none', 'alert-danger');
+            box.classList.add('alert-success');
+            setTimeout(() => box.classList.add('d-none'), 3000);
+        } catch (err) {
+            box.textContent = err.message || 'Failed to save configuration.';
+            box.classList.remove('d-none', 'alert-success');
+            box.classList.add('alert-danger');
+        } finally {
+            btn.disabled = false;
+        }
     });
 });
 </script>

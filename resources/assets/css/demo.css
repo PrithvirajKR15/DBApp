@@ -111,3 +111,19 @@
   text-align: center;
   margin-top: 1rem;
 }
+
+/* App-wide table header: light orange like active menu */
+.table thead,
+.table thead tr,
+.table thead th,
+.table > :not(caption) > thead > tr > th,
+.table > :not(caption) > thead > tr > td {
+  --bs-table-bg: #ffe5d6 !important;
+  --bs-table-bg-type: #ffe5d6 !important;
+  --bs-table-bg-state: #ffe5d6 !important;
+  --bs-table-accent-bg: #ffe5d6 !important;
+  background-color: #ffe5d6 !important;
+  color: #8a3b00 !important;
+  box-shadow: none !important;
+}
+

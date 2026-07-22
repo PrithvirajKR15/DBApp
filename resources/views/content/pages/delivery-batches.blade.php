@@ -146,21 +146,6 @@ unset($batch);
     .prep-ready { color: #28c76f; font-weight: 600; font-size: 0.78rem; }
     .prep-packing { color: #ffab00; font-weight: 600; font-size: 0.78rem; }
 
-    .assign-tab {
-        border: none;
-        border-bottom: 2px solid transparent;
-        background: transparent;
-        padding: 10px 4px;
-        color: #64748b;
-        font-weight: 500;
-        font-size: 0.88rem;
-        cursor: pointer;
-    }
-    .assign-tab.active {
-        color: #ff7a00;
-        border-bottom-color: #ff7a00;
-        font-weight: 600;
-    }
     .driver-pick-card {
         border: 1px solid #e0e2e7;
         border-radius: 12px;
@@ -230,11 +215,12 @@ unset($batch);
             <div class="col-6 col-md-4 col-lg-2">
                 <select class="form-select" id="filter-store" style="border-radius: 8px; font-size: 0.88rem; height: 38px; border-color: #e0e2e7;">
                     <option value="">All Stores</option>
-                    <option>Downtown SuperHub</option>
-                    <option>Uptown Express Hub</option>
-                    <option>Westside Grocer Hub</option>
-                    <option>Harbor Market Hub</option>
-                    <option>Eastside Fresh Hub</option>
+                    <option>Pattom SuperHub</option>
+                    <option>Palayam Express Hub</option>
+                    <option>Medical College Hub</option>
+                    <option>East Fort Market Hub</option>
+                    <option>Technopark Fresh Hub</option>
+                    <option>Kowdiar Central Store</option>
                 </select>
             </div>
             <div class="col-6 col-md-4 col-lg-2">
@@ -282,11 +268,12 @@ unset($batch);
             <span class="badge bg-label-primary rounded-pill" id="collision-driver-count">0 drivers</span>
             <select class="form-select form-select-sm" id="collision-store-filter" style="width: auto; border-radius: 8px; min-width: 180px;">
                 <option value="">All stores</option>
-                <option value="downtown" selected>Downtown SuperHub</option>
-                <option value="uptown">Uptown Express Hub</option>
-                <option value="westside">Westside Grocer Hub</option>
-                <option value="harbor">Harbor Market Hub</option>
-                <option value="eastside">Eastside Fresh Hub</option>
+                <option value="downtown" selected>Pattom SuperHub</option>
+                <option value="uptown">Palayam Express Hub</option>
+                <option value="westside">Medical College Hub</option>
+                <option value="harbor">East Fort Market Hub</option>
+                <option value="eastside">Technopark Fresh Hub</option>
+                <option value="central">Kowdiar Central Store</option>
             </select>
         </div>
     </div>
@@ -565,8 +552,8 @@ unset($batch);
         <div class="modal-content" style="border-radius: 14px;">
             <div class="modal-header border-0 pb-0">
                 <div>
-                    <h5 class="modal-title fw-bold mb-0">Assign Driver to Batch</h5>
-                    <small class="text-muted">Drivers ranked by proximity to route · <span class="fw-semibold text-body" id="assign-zone-label">—</span></small>
+                    <h5 class="modal-title fw-bold mb-0">Assign Store Driver</h5>
+                    <small class="text-muted">Store drivers for this hub · <span class="fw-semibold text-body" id="assign-zone-label">—</span></small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -582,41 +569,25 @@ unset($batch);
                     </div>
                 </div>
 
-                <div class="d-flex gap-3 mb-3" style="border-bottom: 1px solid #e2e8f0;">
-                    <button type="button" class="assign-tab active" data-tab="store">
-                        Store Drivers <span class="badge rounded-pill bg-label-warning ms-1" id="store-count-badge">0</span>
-                    </button>
-                    <button type="button" class="assign-tab" data-tab="zone">
-                        Zone Drivers <span class="badge rounded-pill bg-label-info ms-1" id="zone-count-badge">0</span>
-                    </button>
+                <div class="assign-hint mb-3">
+                    <i class="bx bx-info-circle" style="color: #ff7a00;"></i>
+                    <strong>Store drivers only.</strong> Delivery batches cannot be assigned to zone/individual drivers. Once assigned, the store driver must deliver this route.
                 </div>
 
-                <div class="assign-hint mb-3" id="assign-hint-store">
-                    <i class="bx bx-info-circle" style="color: #ff7a00;"></i>
-                    <strong>Direct assign.</strong> Store drivers cannot accept or reject — once assigned they must deliver this batch.
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <small class="text-muted fw-semibold text-uppercase" style="letter-spacing: 0.4px;">
+                        Available store drivers <span class="badge rounded-pill bg-label-warning ms-1" id="store-count-badge">0</span>
+                    </small>
                 </div>
-                <div class="assign-hint mb-3 d-none" id="assign-hint-zone">
-                    <i class="bx bx-info-circle" style="color: #ff7a00;"></i>
-                    <strong>Send request.</strong> Select one or more zone drivers in this order area. Status stays Waiting until a driver accepts — then it becomes Accepted.
-                </div>
-
                 <div id="store-drivers-panel">
                     <div class="d-flex flex-column gap-2" id="store-driver-list" style="max-height: 320px; overflow-y: auto;"></div>
-                    <div class="text-muted text-center py-4 d-none" id="store-empty">No available store drivers near this route.</div>
-                </div>
-                <div id="zone-drivers-panel" class="d-none">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <small class="text-muted fw-semibold text-uppercase" style="letter-spacing: 0.4px;">Select drivers to request</small>
-                        <button type="button" class="btn btn-sm btn-link p-0" id="select-all-zone" style="color: #ff7a00; font-size: 0.82rem; text-decoration: none;">Select all</button>
-                    </div>
-                    <div class="d-flex flex-column gap-2" id="zone-driver-list" style="max-height: 320px; overflow-y: auto;"></div>
-                    <div class="text-muted text-center py-4 d-none" id="zone-empty">No available zone drivers near this route.</div>
+                    <div class="text-muted text-center py-4 d-none" id="store-empty">No available store drivers for this hub.</div>
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
                 <button type="button" class="btn btn-primary-orange" id="confirm-batch-assign" style="border-radius: 8px;" disabled>
-                    <i class="bx bx-check me-1"></i><span id="confirm-assign-label">Assign Driver</span>
+                    <i class="bx bx-check me-1"></i>Assign Driver
                 </button>
             </div>
         </div>
@@ -641,9 +612,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentZoneKey = '';
     let currentStoreId = '';
     let currentBatchHub = null;
-    let assignMode = 'store';
     let selectedStoreId = null;
-    let selectedZoneIds = new Set();
     const detailMaps = new Map();
 
     // --- Assigned drivers collision map + pick/drop ---
@@ -1085,37 +1054,20 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function injectGeneratedBatches() {
-        let payload;
-        try {
-            payload = JSON.parse(sessionStorage.getItem('deliverease_generated_batches') || 'null');
-        } catch (e) {
-            return;
-        }
-        if (!payload || !Array.isArray(payload.batches) || !payload.batches.length) return;
-
-        const list = document.getElementById('batch-list');
-        const fragment = document.createDocumentFragment();
-
-        payload.batches.slice().reverse().forEach((batch, i) => {
-            const card = buildBatchCard(batch, i === 0);
-            fragment.appendChild(card);
-        });
-        list.insertBefore(fragment, list.firstChild);
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('generated') !== '1') return;
 
         const banner = document.getElementById('generated-banner');
         banner.classList.remove('d-none');
         document.getElementById('generated-banner-text').textContent =
-            `${payload.batches.length} new batch${payload.batches.length === 1 ? '' : 'es'} generated for ${payload.store_name} using distance-based route optimization.`;
+            'New batches saved to the database using distance-based route optimization. Assign store drivers to start delivery.';
 
-        const pendingTab = document.querySelector('.batch-tab[data-status="pending"]');
-        if (pendingTab) {
-            const count = document.querySelectorAll('.batch-card[data-status="pending"]').length;
-            pendingTab.textContent = `Waiting (${count})`;
+        // Clean the query string without reloading
+        if (window.history?.replaceState) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('generated');
+            window.history.replaceState({}, '', url.pathname + url.search);
         }
-
-        sessionStorage.removeItem('deliverease_generated_batches');
-        filterBatches();
-        initVisibleBatchMaps();
     }
 
     function buildBatchCard(batch, expanded) {
@@ -1272,30 +1224,22 @@ document.addEventListener('DOMContentLoaded', function () {
         const dist = window.DeliverEaseBatchGen
             ? window.DeliverEaseBatchGen.roadKm({ lat: driver.lat, lng: driver.lng }, target)
             : 0;
-        const typePenalty = driver.type === 'zone' ? 1.5 : 0;
-        const storeMismatch = driver.type === 'store' && storeId && driver.store_id !== storeId ? 5 : 0;
-        return dist + typePenalty + storeMismatch + (driver.load || 0) * 0.3;
+        const storeMismatch = storeId && driver.store_id !== storeId ? 5 : 0;
+        return dist + storeMismatch + (driver.load || 0) * 0.3;
     }
 
-    function driversForBatch(card, type) {
-        const zoneKey = card.dataset.zoneKey || currentZoneKey;
+    function storeDriversForBatch(card) {
         const storeId = card.dataset.storeId || currentStoreId;
         const target = batchTargetPoint(card);
 
         return BATCH_DRIVERS
-            .filter(d => {
-                if (d.type !== type || d.status !== 'available') return false;
-                if (type === 'store') return !storeId || d.store_id === storeId;
-                if (zoneKey && Array.isArray(d.zones)) return d.zones.includes(zoneKey);
-                return true;
-            })
+            .filter(d => d.type === 'store' && d.status === 'available' && (!storeId || d.store_id === storeId))
             .map(d => ({ driver: d, score: driverScore(d, target, storeId) }))
             .sort((a, b) => a.score - b.score)
             .map(x => x.driver);
     }
 
-    function driverCardHtml(driver, multi) {
-        const checkClass = multi ? 'driver-pick-check square' : 'driver-pick-check';
+    function driverCardHtml(driver) {
         return `
             <div class="driver-pick-card" data-driver-id="${driver.id}" data-driver-name="${driver.name}" data-avatar="${driver.avatar}" data-search="${(driver.name + ' ' + driver.id + ' ' + (driver.vehicle || '')).toLowerCase()}">
                 <div class="d-flex align-items-center gap-3">
@@ -1305,7 +1249,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="flex-grow-1 min-w-0">
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                             <span class="fw-bold text-body">${driver.name}</span>
-                            <span class="badge bg-label-${driver.type === 'store' ? 'warning' : 'info'} rounded-pill" style="font-size: 0.65rem;">${driver.type === 'store' ? 'Store' : 'Zone'}</span>
+                            <span class="badge bg-label-warning rounded-pill" style="font-size: 0.65rem;">Store</span>
                         </div>
                         <small class="text-muted">ID: ${driver.id} · ${driver.vehicle}${driver.store ? ' · ' + driver.store : ''}</small>
                         <div class="d-flex gap-3 mt-1" style="font-size: 0.8rem;">
@@ -1313,62 +1257,35 @@ document.addEventListener('DOMContentLoaded', function () {
                             <span><span class="text-muted">Dist:</span> <strong>${driver.distance}</strong> (${driver.eta})</span>
                         </div>
                     </div>
-                    <div class="${checkClass}"><i class="bx bx-check" style="font-size: 0.85rem;"></i></div>
+                    <div class="driver-pick-check"><i class="bx bx-check" style="font-size: 0.85rem;"></i></div>
                 </div>
             </div>`;
     }
 
     function renderDriverLists() {
         const card = currentBatchCard;
-        const storeDrivers = card ? driversForBatch(card, 'store') : [];
-        const zoneDrivers = card ? driversForBatch(card, 'zone') : [];
+        const storeDrivers = card ? storeDriversForBatch(card) : [];
         const storeList = document.getElementById('store-driver-list');
-        const zoneList = document.getElementById('zone-driver-list');
 
-        storeList.innerHTML = storeDrivers.map(d => driverCardHtml(d, false)).join('');
-        zoneList.innerHTML = zoneDrivers.map(d => driverCardHtml(d, true)).join('');
-
+        storeList.innerHTML = storeDrivers.map(d => driverCardHtml(d)).join('');
         document.getElementById('store-count-badge').textContent = storeDrivers.length;
-        document.getElementById('zone-count-badge').textContent = zoneDrivers.length;
         document.getElementById('store-empty').classList.toggle('d-none', storeDrivers.length > 0);
-        document.getElementById('zone-empty').classList.toggle('d-none', zoneDrivers.length > 0);
 
         selectedStoreId = null;
-        selectedZoneIds = new Set();
         updateConfirmBtn();
         applyDriverSearch();
     }
 
-    function setAssignMode(mode) {
-        assignMode = mode;
-        document.querySelectorAll('.assign-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === mode));
-        document.getElementById('store-drivers-panel').classList.toggle('d-none', mode !== 'store');
-        document.getElementById('zone-drivers-panel').classList.toggle('d-none', mode !== 'zone');
-        document.getElementById('assign-hint-store').classList.toggle('d-none', mode !== 'store');
-        document.getElementById('assign-hint-zone').classList.toggle('d-none', mode !== 'zone');
-        document.getElementById('confirm-assign-label').textContent = mode === 'store' ? 'Assign Driver' : 'Send Request';
-        updateConfirmBtn();
-    }
-
     function updateConfirmBtn() {
-        const btn = document.getElementById('confirm-batch-assign');
-        if (assignMode === 'store') {
-            btn.disabled = !selectedStoreId;
-        } else {
-            btn.disabled = selectedZoneIds.size === 0;
-        }
+        document.getElementById('confirm-batch-assign').disabled = !selectedStoreId;
     }
 
     function applyDriverSearch() {
         const q = (document.getElementById('search-batch-drivers').value || '').toLowerCase();
-        document.querySelectorAll('#store-driver-list .driver-pick-card, #zone-driver-list .driver-pick-card').forEach(card => {
+        document.querySelectorAll('#store-driver-list .driver-pick-card').forEach(card => {
             card.style.display = !q || (card.dataset.search || '').includes(q) ? '' : 'none';
         });
     }
-
-    document.querySelectorAll('.assign-tab').forEach(tab => {
-        tab.addEventListener('click', () => setAssignMode(tab.dataset.tab));
-    });
 
     document.getElementById('search-batch-drivers').addEventListener('input', applyDriverSearch);
 
@@ -1381,47 +1298,9 @@ document.addEventListener('DOMContentLoaded', function () {
         updateConfirmBtn();
     });
 
-    document.getElementById('zone-driver-list').addEventListener('click', function (e) {
-        const card = e.target.closest('.driver-pick-card');
-        if (!card) return;
-        const id = card.dataset.driverId;
-        if (selectedZoneIds.has(id)) {
-            selectedZoneIds.delete(id);
-            card.classList.remove('selected');
-        } else {
-            selectedZoneIds.add(id);
-            card.classList.add('selected');
-        }
-        updateConfirmBtn();
-    });
-
-    document.getElementById('select-all-zone').addEventListener('click', function () {
-        document.querySelectorAll('#zone-driver-list .driver-pick-card').forEach(card => {
-            if (card.style.display === 'none') return;
-            selectedZoneIds.add(card.dataset.driverId);
-            card.classList.add('selected');
-        });
-        updateConfirmBtn();
-    });
-
     document.getElementById('batch-list').addEventListener('click', function (e) {
         const card = e.target.closest('.batch-card');
         if (!card) return;
-
-        if (e.target.closest('.btn-simulate-accept')) {
-            e.stopPropagation();
-            card.dataset.status = 'accepted';
-            card.dataset.requestPending = '0';
-            const chip = card.querySelector('.status-chip');
-            if (chip) {
-                chip.className = 'status-chip chip-accepted';
-                chip.innerHTML = '<span class="dot"></span>Accepted';
-            }
-            card.querySelector('.request-pending-note')?.remove();
-            e.target.closest('.btn-simulate-accept').remove();
-            filterBatches();
-            return;
-        }
 
         if (e.target.closest('.btn-assign-batch')) {
             currentBatchCard = card;
@@ -1429,9 +1308,8 @@ document.addEventListener('DOMContentLoaded', function () {
             currentStoreId = card.dataset.storeId || '';
             currentBatchHub = batchTargetPoint(card);
             document.getElementById('assign-batch-id').textContent = card.dataset.batchId || '';
-            document.getElementById('assign-zone-label').textContent = card.dataset.zone || currentZoneKey;
+            document.getElementById('assign-zone-label').textContent = card.dataset.store || card.dataset.zone || '';
             document.getElementById('search-batch-drivers').value = '';
-            setAssignMode('store');
             renderDriverLists();
             assignModal.show();
             return;
@@ -1446,20 +1324,37 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    document.getElementById('confirm-batch-assign').addEventListener('click', function () {
-        if (!currentBatchCard) return;
+    document.getElementById('confirm-batch-assign').addEventListener('click', async function () {
+        if (!currentBatchCard || !selectedStoreId) return;
 
-        if (assignMode === 'store') {
-            const card = document.querySelector(`#store-driver-list .driver-pick-card[data-driver-id="${selectedStoreId}"]`);
-            const name = card?.dataset.driverName || 'Driver';
-            const avatar = card?.dataset.avatar || '1.png';
+        const batchCode = currentBatchCard.dataset.batchId;
+        const btn = this;
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`{{ url('/operations/delivery-batches') }}/${encodeURIComponent(batchCode)}/assign`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({ driver_code: selectedStoreId }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || 'Assignment failed.');
+            }
+
+            const pick = document.querySelector(`#store-driver-list .driver-pick-card[data-driver-id="${selectedStoreId}"]`);
+            const name = data.batch?.driver?.name || pick?.dataset.driverName || 'Driver';
+            const avatar = data.batch?.driver?.avatar || pick?.dataset.avatar || '1.png';
             currentBatchCard.dataset.status = 'assigned';
             const chip = currentBatchCard.querySelector('.status-chip');
             if (chip) {
                 chip.className = 'status-chip chip-assigned';
                 chip.innerHTML = '<span class="dot"></span>Assigned';
             }
-            // Show assigned driver in summary if slot exists
             const actions = currentBatchCard.querySelector('.btn-assign-batch')?.parentElement;
             if (actions && !currentBatchCard.querySelector('.assigned-driver-chip')) {
                 const chipEl = document.createElement('div');
@@ -1472,44 +1367,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 actions.insertBefore(chipEl, actions.firstChild);
             }
             currentBatchCard.querySelector('.btn-assign-batch')?.remove();
-        } else {
-            // Zone drivers: request sent — keep Waiting (same as order broadcast); accept → Accepted
-            const count = selectedZoneIds.size;
-            const chip = currentBatchCard.querySelector('.status-chip');
-            if (chip) {
-                chip.className = 'status-chip chip-waiting';
-                chip.innerHTML = '<span class="dot"></span>Waiting';
-            }
-            // Mark request pending without inventing a "broadcast" status
-            currentBatchCard.dataset.requestPending = '1';
-            currentBatchCard.dataset.requestCount = String(count);
-            currentBatchCard.dataset.status = 'pending';
 
-            let note = currentBatchCard.querySelector('.request-pending-note');
-            if (!note) {
-                const zoneLine = currentBatchCard.querySelector('small.text-muted');
-                if (zoneLine) {
-                    note = document.createElement('div');
-                    note.className = 'request-pending-note';
-                    note.style.cssText = 'font-size: 0.78rem; color: #ff7a00; margin-top: 2px;';
-                    zoneLine.parentElement.appendChild(note);
-                }
-            }
-            if (note) {
-                note.innerHTML = `<i class="bx bx-broadcast"></i> Request sent to ${count} zone driver${count === 1 ? '' : 's'}`;
+            if (data.batch) {
+                assignedRoutes = assignedRoutes.filter(b => b.id !== data.batch.id);
+                assignedRoutes.push(data.batch);
+                refreshAssignedMap();
+                renderCollisionDriverList();
             }
 
-            const assignBtn = currentBatchCard.querySelector('.btn-assign-batch');
-            if (assignBtn) {
-                assignBtn.textContent = 'Simulate Accept';
-                assignBtn.classList.remove('btn-assign-batch', 'btn-primary-orange');
-                assignBtn.classList.add('btn-simulate-accept', 'btn-outline-secondary');
-                assignBtn.title = 'Demo: mark as accepted when a zone driver accepts';
-            }
+            assignModal.hide();
+            filterBatches();
+        } catch (err) {
+            alert(err.message || 'Assignment failed.');
+        } finally {
+            btn.disabled = false;
+            updateConfirmBtn();
         }
-
-        assignModal.hide();
-        filterBatches();
     });
 
     filterBatches();

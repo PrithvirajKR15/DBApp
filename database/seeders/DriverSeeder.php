@@ -84,15 +84,15 @@ class DriverSeeder extends Seeder
             $this->assign($driver, $storeId, $zoneName ? $this->zoneId($zoneName) : null);
         }
 
-        // 2) Drivers that appear on the live map (with a real-time location fix).
+        // 2) Drivers that appear on the live map (Trivandrum, Kerala locations).
         $liveDrivers = [
-            ['code' => 'DRV-9001', 'name' => 'Mike Johnson', 'image' => '5.png', 'rating' => 4.8, 'zone' => 'Manhattan Core', 'live_status' => 'Transit', 'lat' => 40.7128, 'lng' => -74.0060, 'speed_kmh' => 32],
-            ['code' => 'DRV-9002', 'name' => 'Sarah Connor', 'image' => '6.png', 'rating' => 4.9, 'zone' => 'Manhattan Core', 'live_status' => 'Transit', 'lat' => 40.7250, 'lng' => -74.0150, 'speed_kmh' => 28],
-            ['code' => 'DRV-9003', 'name' => 'David Smith', 'image' => '7.png', 'rating' => 4.5, 'zone' => 'Manhattan Core', 'live_status' => 'Transit', 'lat' => 40.7050, 'lng' => -73.9960, 'speed_kmh' => 40],
-            ['code' => 'DRV-9004', 'name' => 'Emily Rodriguez', 'image' => '2.png', 'rating' => 4.9, 'zone' => 'Downtown Zone', 'live_status' => 'Idle', 'lat' => 40.7180, 'lng' => -74.0010],
-            ['code' => 'DRV-9005', 'name' => 'James Park', 'image' => '3.png', 'rating' => 4.7, 'zone' => 'Northwest District', 'live_status' => 'Idle', 'lat' => 40.7290, 'lng' => -73.9890],
-            ['code' => 'DRV-9006', 'name' => 'Carlos Mendes', 'image' => '4.png', 'rating' => 4.6, 'zone' => 'Manhattan Core', 'live_status' => 'Transit', 'lat' => 40.7110, 'lng' => -74.0130, 'speed_kmh' => 22],
-            ['code' => 'DRV-9007', 'name' => 'Lisa Chen', 'image' => '1.png', 'rating' => 4.4, 'zone' => 'Brooklyn Zone', 'live_status' => 'Offline', 'lat' => 40.7200, 'lng' => -73.9750, 'recorded_min_ago' => 45],
+            ['code' => 'DRV-9001', 'name' => 'Mike Johnson', 'image' => '5.png', 'rating' => 4.8, 'zone' => 'Pattom', 'live_status' => 'Transit', 'lat' => 8.5100, 'lng' => 76.9550, 'speed_kmh' => 32],
+            ['code' => 'DRV-9002', 'name' => 'Sarah Connor', 'image' => '6.png', 'rating' => 4.9, 'zone' => 'Kowdiar', 'live_status' => 'Transit', 'lat' => 8.5095, 'lng' => 76.9645, 'speed_kmh' => 28],
+            ['code' => 'DRV-9003', 'name' => 'David Smith', 'image' => '7.png', 'rating' => 4.5, 'zone' => 'Palayam', 'live_status' => 'Transit', 'lat' => 8.5068, 'lng' => 76.9535, 'speed_kmh' => 40],
+            ['code' => 'DRV-9004', 'name' => 'Emily Rodriguez', 'image' => '2.png', 'rating' => 4.9, 'zone' => 'Medical College', 'live_status' => 'Idle', 'lat' => 8.5235, 'lng' => 76.9280],
+            ['code' => 'DRV-9005', 'name' => 'James Park', 'image' => '3.png', 'rating' => 4.7, 'zone' => 'Vellayambalam', 'live_status' => 'Idle', 'lat' => 8.5040, 'lng' => 76.9700],
+            ['code' => 'DRV-9006', 'name' => 'Carlos Mendes', 'image' => '4.png', 'rating' => 4.6, 'zone' => 'Sasthamangalam', 'live_status' => 'Transit', 'lat' => 8.5160, 'lng' => 76.9725, 'speed_kmh' => 22],
+            ['code' => 'DRV-9007', 'name' => 'Lisa Chen', 'image' => '1.png', 'rating' => 4.4, 'zone' => 'East Fort', 'live_status' => 'Offline', 'lat' => 8.4830, 'lng' => 76.9475, 'recorded_min_ago' => 45],
         ];
 
         foreach ($liveDrivers as $d) {
@@ -185,6 +185,7 @@ class DriverSeeder extends Seeder
         return match ($legacyStatus) {
             'Offline', 'Active', 'Approved' => 'Active',
             'Pending Review', 'Docs Verified', 'Pending' => 'Pending',
+            'Rejected' => 'Rejected',
             'Suspended' => 'Suspended',
             default => 'Active',
         };

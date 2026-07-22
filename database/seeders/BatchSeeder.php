@@ -6,9 +6,17 @@ use App\Models\BatchHub;
 use App\Models\BatchSetting;
 use App\Models\DeliveryBatch;
 use App\Models\DeliveryBatchStop;
+use App\Models\Driver;
+use App\Models\DriverAssignment;
+use App\Models\DriverLocation;
 use App\Models\Order;
+use App\Models\Role;
 use App\Models\Store;
+use App\Models\User;
+use App\Models\Zone;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class BatchSeeder extends Seeder
 {
@@ -79,6 +87,8 @@ class BatchSeeder extends Seeder
             );
         }
 
+        $this->seedBatchDrivers($data['drivers'] ?? [], $storesByCode);
+
         foreach ($data['batches'] ?? [] as $batch) {
             $storeCode = $batch['store_id'] ?? null;
             $driver = $batch['driver'] ?? null;
@@ -125,6 +135,132 @@ class BatchSeeder extends Seeder
                     'delivery' => $stop['delivery'] ?? null,
                 ]);
             }
+        }
+
+        $this->refreshHubStats($storesByCode);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $drivers
+     * @param  \Illuminate\Support\Collection<string, int>  $storesByCode
+     */
+    private function seedBatchDrivers(array $drivers, $storesByCode): void
+    {
+        $userRoleId = Role::findBySlug('user')->id;
+        $usedMobiles = User::pluck('mobile')->flip()->map(fn () => true)->all();
+
+        foreach ($drivers as $d) {
+            $code = $d['id'] ?? null;
+            if (! $code) {
+                continue;
+            }
+
+            $slug = Str::slug($d['name'] ?? $code, '.');
+            $mobile = '+1 555 ' . str_pad((string) (crc32($code) % 10000), 4, '0', STR_PAD_LEFT);
+            while (isset($usedMobiles[$mobile])) {
+                $mobile .= '1';
+            }
+            $usedMobiles[$mobile] = true;
+
+            $user = User::updateOrCreate(
+                ['email' => $slug . '.batch@kenland.in'],
+                [
+                    'name' => $d['name'],
+                    'mobile' => $mobile,
+                    'password' => Hash::make('password@123'),
+                    'role_id' => $userRoleId,
+                    'code' => $code,
+                    'status' => 'Active',
+                    'image' => $d['avatar'] ?? '1.png',
+                ]
+            );
+
+            $driver = Driver::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'availability' => ($d['status'] ?? 'available') === 'available' ? 'Online' : 'Offline',
+                    'vehicle_type' => 'scooter',
+                    'plate_number' => $d['vehicle'] ?? null,
+                    'partner_type' => ($d['type'] ?? 'zone') === 'store' ? 'store' : 'independent',
+                    'service_areas' => $d['zones'] ?? null,
+                ]
+            );
+
+            $type = ($d['type'] ?? 'zone') === 'store' ? 'store' : 'zone';
+            $storeId = $type === 'store' ? ($storesByCode[$d['store_id'] ?? ''] ?? null) : null;
+            $zoneId = null;
+
+            if ($type === 'zone') {
+                $region = strtolower((string) ($d['zones'][0] ?? 'central'));
+                $regionPrimary = [
+                    'north' => 'pattom',
+                    'central' => 'kowdiar',
+                    'east' => 'technopark',
+                    'west' => 'medical-college',
+                    'south' => 'east-fort',
+                ];
+                $zoneCode = $regionPrimary[$region] ?? $region;
+                $zone = Zone::where('code', $zoneCode)->first()
+                    ?? Zone::where('region', $region)->first();
+
+                if ($zone) {
+                    $zoneId = $zone->id;
+                }
+            }
+
+            DriverAssignment::updateOrCreate(
+                ['driver_id' => $driver->id],
+                [
+                    'store_id' => $storeId,
+                    'zone_id' => $zoneId,
+                    'type' => $storeId ? 'store' : 'zone',
+                    'is_active' => true,
+                    'assigned_at' => now(),
+                ]
+            );
+
+            if (isset($d['lat'], $d['lng'])) {
+                DriverLocation::updateOrCreate(
+                    ['driver_id' => $driver->id],
+                    [
+                        'lat' => $d['lat'],
+                        'lng' => $d['lng'],
+                        'live_status' => 'Idle',
+                        'recorded_at' => now(),
+                    ]
+                );
+            }
+        }
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<string, int>  $storesByCode
+     */
+    private function refreshHubStats($storesByCode): void
+    {
+        $ordersPerBatch = max(1, (int) (BatchSetting::query()->value('orders_per_batch') ?? 5));
+
+        foreach (BatchHub::all() as $hub) {
+            $storeId = $storesByCode[$hub->code] ?? null;
+            if (! $storeId) {
+                continue;
+            }
+
+            $pending = (int) Order::where('store_id', $storeId)
+                ->whereNull('views')
+                ->whereNotNull('zone_key')
+                ->where('delivery', 'waiting')
+                ->count();
+
+            $driversCount = (int) Driver::storeDrivers()
+                ->whereHas('activeAssignment', fn ($q) => $q->where('store_id', $storeId))
+                ->count();
+
+            $hub->update([
+                'pending' => $pending,
+                'drivers_count' => $driversCount,
+                'est_batches' => (int) ceil($pending / $ordersPerBatch),
+            ]);
         }
     }
 }

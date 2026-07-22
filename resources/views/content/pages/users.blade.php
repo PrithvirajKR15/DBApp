@@ -406,7 +406,7 @@
         <div class="table-responsive text-nowrap">
             <table class="table table-hover mb-0" id="drivers-table">
                 <thead>
-                    <tr class="table-light border-bottom" style="background-color: #fcfcfc;">
+                    <tr class="table-light border-bottom">
                         {{-- <th style="width: 40px; padding: 16px 20px;">
                             <div class="form-check m-0">
                                 <input class="form-check-input select-all-checkbox" type="checkbox" id="selectAll">

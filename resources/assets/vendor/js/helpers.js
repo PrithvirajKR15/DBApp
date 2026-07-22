@@ -327,6 +327,8 @@ const Helpers = {
           this._redrawLayoutMenu() ? 5 : 0
         )
       }
+    } else {
+      this[collapsed ? '_addClass' : '_removeClass']('layout-menu-collapsed')
     }
   },
 
@@ -423,11 +425,15 @@ const Helpers = {
 
     if (!this._menuMouseEnter) {
       this._menuMouseEnter = () => {
-        if (this.isSmallScreen() || this._hasClass('layout-transitioning')) {
+        if (
+          this.isSmallScreen() ||
+          !this._hasClass('layout-menu-collapsed') ||
+          this._hasClass('layout-transitioning')
+        ) {
           return this._setMenuHoverState(false)
         }
 
-        return this._setMenuHoverState(false)
+        return this._setMenuHoverState(true)
       }
       layoutMenu.addEventListener('mouseenter', this._menuMouseEnter, false)
       layoutMenu.addEventListener('touchstart', this._menuMouseEnter, false)
@@ -503,7 +509,7 @@ const Helpers = {
       this._bindLayoutAnimationEndEvent(
         () => {
           // Collapse / Expand
-          if (this.isSmallScreen) this._setCollapsed(collapsed)
+          this._setCollapsed(collapsed)
         },
         () => {
           this._removeClass('layout-transitioning')

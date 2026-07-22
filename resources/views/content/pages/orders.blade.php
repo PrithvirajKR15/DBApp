@@ -586,7 +586,7 @@ $paymentLabels = [
                             <button type="button" class="btn btn-sm btn-outline-secondary btn-broadcast-one" style="border-radius: 6px; font-size: 0.78rem;" title="Broadcast to zone drivers">
                                 <i class="bx bx-broadcast"></i>
                             </button>
-                            @elseif ($order['delivery'] === 'out')
+                            @elseif ($order['delivery'] === 'out' && $order['driver'])
                             <a href="{{ url('/live-map?driver=' . urlencode($order['driver']['name'])) }}" class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; font-size: 0.78rem;">
                                 <span class="d-inline-block rounded-circle bg-danger me-1" style="width: 6px; height: 6px;"></span>Live
                             </a>

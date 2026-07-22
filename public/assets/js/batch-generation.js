@@ -141,28 +141,27 @@
         return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'central';
     }
 
-    function assignDriver(batch, drivers, config) {
+    function assignDriver(batch, drivers) {
         const hub = batch.hub;
         const firstStop = batch.orders[0];
         const target = firstStop || hub;
 
-        const available = drivers.filter((d) => d.status === 'available');
+        // Batches are store-driver only — never suggest zone/individual drivers.
+        const available = drivers.filter(
+            (d) =>
+                d.status === 'available' &&
+                d.type === 'store' &&
+                (!batch.store_id || d.store_id === batch.store_id)
+        );
         if (!available.length) return null;
 
         const scored = available
             .map((driver) => {
                 const driverPoint = { lat: driver.lat, lng: driver.lng };
-                const distToRoute = roadKm(driverPoint, target);
-                const typePenalty = config.preferStoreDrivers && driver.type !== 'store' ? 2 : 0;
-                const storeBonus =
-                    config.preferStoreDrivers &&
-                    driver.type === 'store' &&
-                    driver.store_id === batch.store_id
-                        ? -1.5
-                        : 0;
+                const distToRoute =
+                    driver.lat != null && target?.lat != null ? roadKm(driverPoint, target) : 0;
                 const loadPenalty = (driver.load || 0) * 0.3;
-                const score = distToRoute + typePenalty + storeBonus + loadPenalty;
-                return { driver, score, distToRoute };
+                return { driver, score: distToRoute + loadPenalty, distToRoute };
             })
             .sort((a, b) => a.score - b.score);
 
@@ -174,8 +173,6 @@
             ordersPerBatch = 5,
             maxDistanceKm = 10,
             maxRouteMinutes = 45,
-            preferStoreDrivers = true,
-            autoFallbackZone = true,
         } = config;
 
         const speedKmh = AVG_SPEED_KMH;
@@ -297,13 +294,7 @@
             const batchId = `BT-${timestamp}${idx}-${prefix}`;
             const suggestedDriver = assignDriver(
                 { hub, orders: b._orders, store_id: storeId },
-                drivers.filter(
-                    (d) =>
-                        d.type === 'store'
-                            ? d.store_id === storeId
-                            : autoFallbackZone
-                ),
-                { preferStoreDrivers, autoFallbackZone }
+                drivers
             );
 
             return {
@@ -326,11 +317,8 @@
                           id: suggestedDriver.id,
                           name: suggestedDriver.name,
                           avatar: suggestedDriver.avatar,
-                          type: suggestedDriver.type,
-                          reason:
-                              suggestedDriver.type === 'store'
-                                  ? 'Nearest store driver'
-                                  : 'Lowest extra travel (zone fallback)',
+                          type: 'store',
+                          reason: 'Nearest store driver',
                       }
                     : null,
                 orders,

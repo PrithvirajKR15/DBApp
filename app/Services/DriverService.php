@@ -102,13 +102,16 @@ class DriverService
     }
 
     /**
+     * Hired zone fleet only (Active + Suspended).
+     * Pending / Rejected applications stay on Approvals.
+     *
      * @return Collection<int, array<string, mixed>>
      */
     public function listZoneDrivers(): Collection
     {
         return Driver::zoneDrivers()
             ->with(['user', 'activeAssignment.zone', 'orders'])
-            ->whereHas('user')
+            ->whereHas('user', fn ($q) => $q->whereIn('status', ['Active', 'Suspended']))
             ->get()
             ->map(fn (Driver $driver) => $this->shapeZoneDriver($driver));
     }
@@ -215,6 +218,162 @@ class DriverService
     }
 
     /**
+     * Update personal fields editable from the driver profile page.
+     *
+     * @param  array{name: string, email: string, mobile: string, address?: string|null}  $data
+     */
+    public function updateDriverPersonalInfo(string $code, array $data): Driver
+    {
+        $driver = $this->findDriverByCode($code);
+        $user = $driver->user;
+
+        $user->update([
+            'name' => trim($data['name']),
+            'email' => $data['email'],
+            'mobile' => $this->formatMobile($data['mobile']),
+            'address' => $data['address'] ?? null,
+        ]);
+
+        return $driver->fresh(['user', 'activeAssignment.store', 'activeAssignment.zone', 'orders']);
+    }
+
+    /**
+     * @param  array{status?: string, availability?: string}  $data
+     */
+    public function updateDriverAccountStatus(string $code, array $data): Driver
+    {
+        $driver = $this->findDriverByCode($code);
+
+        if (isset($data['status'])) {
+            $driver->user->update([
+                'status' => $this->normalizeAccountStatus($data['status']),
+            ]);
+        }
+
+        if (isset($data['availability'])) {
+            $driver->update([
+                'availability' => $this->normalizeAvailability($data['availability']),
+            ]);
+        }
+
+        return $driver->fresh(['user', 'activeAssignment.store', 'activeAssignment.zone', 'orders']);
+    }
+
+    /**
+     * Drivers in the application queue: Pending Review + Rejected.
+     * Suspended is for hired drivers only (fleet list / profile), not approvals.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function listApprovalDrivers(): Collection
+    {
+        return Driver::query()
+            ->whereHas('user', fn ($q) => $q->whereIn('status', ['Pending', 'Rejected']))
+            ->with(['user', 'activeAssignment.store', 'activeAssignment.zone', 'documents'])
+            ->get()
+            ->sortByDesc(fn (Driver $driver) => $driver->user?->created_at)
+            ->values()
+            ->map(fn (Driver $driver) => $this->shapeApprovalDriver($driver));
+    }
+
+    public function countApprovalDriversByStatus(string $status): int
+    {
+        $status = $this->normalizeAccountStatus($status);
+
+        return Driver::query()
+            ->whereHas('user', fn ($q) => $q->where('status', $status))
+            ->count();
+    }
+
+    /**
+     * Shape a driver row for the Approvals registrations table.
+     *
+     * @return array<string, mixed>
+     */
+    public function shapeApprovalDriver(Driver $driver): array
+    {
+        $shaped = $this->shapeDriver($driver);
+        $user = $driver->user;
+        $registeredAt = $user?->created_at ?? $driver->joined_at;
+
+        $vehicleParts = array_filter([
+            $this->formatVehicleTypeLabel($driver->vehicle_type),
+            $driver->vehicle_brand,
+        ]);
+        $vehicle = $vehicleParts
+            ? implode(' · ', $vehicleParts)
+            : ($driver->vehicle_model ?: '—');
+
+        $partnerType = ($driver->partner_type ?? 'independent') === 'third-party'
+            ? 'Third-party'
+            : 'Independent';
+
+        $serviceArea = $shaped['type'] === 'zone'
+            ? ($shaped['zone'] ?? 'None')
+            : ($shaped['store'] ?? 'None');
+
+        $hasAllDocs = $this->hasAllRequiredDocuments($driver);
+        $status = $this->normalizeAccountStatus($user?->status);
+        $subtext = '';
+        if ($status === 'Pending') {
+            $subtext = $hasAllDocs ? 'Ready for approval' : 'Awaiting docs';
+        }
+
+        return [
+            'id' => $shaped['id'],
+            'name' => $shaped['name'],
+            'phone' => $shaped['phone'],
+            'email' => $shaped['email'],
+            'avatar' => $shaped['avatar'],
+            'partnerType' => $partnerType,
+            'partner_type' => $driver->partner_type ?? 'independent',
+            'vehicle' => $vehicle,
+            'serviceArea' => $serviceArea === 'None' ? '—' : $serviceArea,
+            'type' => $shaped['type'],
+            'zone' => $shaped['zone'] ?? null,
+            'zone_id' => $shaped['zone_id'] ?? null,
+            'store' => $shaped['store'] ?? null,
+            'date' => $registeredAt ? $registeredAt->format('M j, Y') : '',
+            'time' => $registeredAt ? $registeredAt->format('h:i A') : '',
+            'timestamp' => $registeredAt?->toDateTimeString(),
+            'status' => $status,
+            'subtext' => $subtext,
+            'docs_complete' => $hasAllDocs,
+        ];
+    }
+
+    private function formatVehicleTypeLabel(?string $type): ?string
+    {
+        if (! $type) {
+            return null;
+        }
+
+        return match (strtolower($type)) {
+            'scooter' => 'Scooter',
+            'motorcycle', 'bike' => 'Motorcycle',
+            'car' => 'Car',
+            'van' => 'Van',
+            'bicycle', 'cycle' => 'Bicycle',
+            default => ucfirst($type),
+        };
+    }
+
+    private function hasAllRequiredDocuments(Driver $driver): bool
+    {
+        $uploaded = $driver->relationLoaded('documents')
+            ? $driver->documents->pluck('doc_type')->unique()->all()
+            : $driver->documents()->pluck('doc_type')->unique()->all();
+
+        foreach (DriverDocument::REQUIRED_TYPES as $type) {
+            if (! in_array($type, $uploaded, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function shapeDriver(Driver $driver): array
@@ -235,10 +394,11 @@ class DriverService
     {
         $user = $driver->user;
         $zone = $driver->activeAssignment?->zone;
-        $joinedAt = $driver->joined_at ?? $user?->created_at?->toDateString();
+        $joinedAt = $driver->joined_at ?? $user?->created_at;
+        $joinedDate = $joinedAt ? \Illuminate\Support\Carbon::parse($joinedAt)->toDateString() : null;
         $rating = $driver->rating !== null ? number_format((float) $driver->rating, 1) : '—';
 
-        return array_merge($this->baseShapedDriver($driver, $user, $joinedAt, $rating), [
+        return array_merge($this->baseShapedDriver($driver, $user, $joinedDate, $rating), [
             'type' => 'zone',
             'store' => 'None',
             'zone' => $zone?->name ?? 'None',
@@ -258,10 +418,11 @@ class DriverService
     {
         $user = $driver->user;
         $store = $driver->activeAssignment?->store;
-        $joinedAt = $driver->joined_at ?? $user?->created_at?->toDateString();
+        $joinedAt = $driver->joined_at ?? $user?->created_at;
+        $joinedDate = $joinedAt ? \Illuminate\Support\Carbon::parse($joinedAt)->toDateString() : null;
         $rating = $driver->rating !== null ? number_format((float) $driver->rating, 1) : '—';
 
-        return array_merge($this->baseShapedDriver($driver, $user, $joinedAt, $rating), [
+        return array_merge($this->baseShapedDriver($driver, $user, $joinedDate, $rating), [
             'type' => 'store',
             'store' => $store?->name ?? 'None',
             'store_id' => $store?->id,
@@ -308,11 +469,11 @@ class DriverService
             'password' => Hash::make($plainPassword),
             'role_id' => $roleId,
             'code' => $this->nextDriverCode(),
-            'status' => ($data['status'] ?? 'Active') === 'Offline' ? 'Active' : ($data['status'] ?? 'Active'),
+            'status' => $this->normalizeAccountStatus($data['status'] ?? 'Active'),
             'dob' => $data['dob'] ?? null,
             'gender' => $data['gender'] ?? null,
             'address' => $data['address'] ?? null,
-            'image' => $avatar ? $avatar->store('drivers/image', 'public') : null,
+            'image' => $avatar ? $avatar->store('drivers/avatars', 'public') : null,
             'dev_remark' => $this->encodeDevRemark($data['email'], $mobile, $plainPassword),
         ]);
 
@@ -327,7 +488,9 @@ class DriverService
             'name' => trim($data['first_name'] . ' ' . ($data['last_name'] ?? '')),
             'email' => $data['email'],
             'mobile' => $mobile,
-            'status' => $data['status'] ?? $user->status,
+            'status' => isset($data['status'])
+                ? $this->normalizeAccountStatus($data['status'])
+                : $user->status,
             'dob' => $data['dob'] ?? null,
             'gender' => $data['gender'] ?? null,
             'address' => $data['address'] ?? null,
@@ -364,9 +527,13 @@ class DriverService
         if ($image && ! str_starts_with($image, 'data:')) {
             if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://')) {
                 // keep absolute URLs as-is
+            } elseif (str_starts_with($image, '/storage/') || str_starts_with($image, 'storage/')) {
+                $image = asset(ltrim($image, '/'));
             } elseif (str_contains($image, '/')) {
-                $image = asset('storage/' . ltrim(str_replace('storage/', '', $image), '/'));
+                // Uploaded paths like drivers/avatars/xyz.png
+                $image = asset('storage/' . ltrim($image, '/'));
             } else {
+                // Seeded filenames like 5.png live under public avatars
                 $image = asset('assets/img/avatars/' . $image);
             }
         }
@@ -376,8 +543,8 @@ class DriverService
             'name' => $user?->name,
             'phone' => $user?->mobile,
             'avatar' => $image ?? '1.png',
-            'status' => $user?->status ?? 'Pending',
-            'availability' => $driver->availability ?? 'Offline',
+            'status' => $this->normalizeAccountStatus($user?->status),
+            'availability' => $this->normalizeAvailability($driver->availability),
             'rating' => $rating,
             'deliveries' => $driver->deliveries,
             'joined' => $joinedAt ? date('F j, Y', strtotime($joinedAt)) : '',
@@ -396,6 +563,35 @@ class DriverService
             'shift' => $driver->shift,
             'working_days' => $driver->working_days ?? [],
         ];
+    }
+
+    /**
+     * Canonical account statuses:
+     * Pending → application awaiting review
+     * Active → approved / hired
+     * Rejected → application denied
+     * Suspended → hired driver temporarily blocked
+     */
+    public function normalizeAccountStatus(?string $status): string
+    {
+        return match ($status) {
+            'Pending Review', 'Docs Verified', 'Pending' => 'Pending',
+            'Approved', 'Active', 'Offline' => 'Active',
+            'Rejected' => 'Rejected',
+            'Suspended' => 'Suspended',
+            default => 'Pending',
+        };
+    }
+
+    /**
+     * Canonical availability values: Online, Offline, Transit.
+     */
+    public function normalizeAvailability(?string $availability): string
+    {
+        return match ($availability) {
+            'Online', 'Transit', 'Offline' => $availability,
+            default => 'Offline',
+        };
     }
 
     /**
@@ -436,13 +632,30 @@ class DriverService
         }
 
         $legacyMap = [
-            'downtown' => 'downtown-zone',
-            'northwest' => 'northwest-district',
-            'southeast' => 'southeast-hub',
-            'uptown' => 'uptown-area',
-            'east' => 'east-side',
-            'west' => 'west-end',
-            'midtown' => 'midtown',
+            'downtown' => 'pattom',
+            'northwest' => 'pattom',
+            'southeast' => 'east-fort',
+            'uptown' => 'palayam',
+            'east' => 'technopark',
+            'west' => 'medical-college',
+            'midtown' => 'kowdiar',
+            'pattom' => 'pattom',
+            'kesavadasapuram' => 'kesavadasapuram',
+            'ulloor' => 'ulloor',
+            'murinjapalam' => 'murinjapalam',
+            'kowdiar' => 'kowdiar',
+            'palayam' => 'palayam',
+            'thampanoor' => 'thampanoor',
+            'vellayambalam' => 'vellayambalam',
+            'statue' => 'statue',
+            'sasthamangalam' => 'sasthamangalam',
+            'technopark' => 'technopark',
+            'peroorkada' => 'peroorkada',
+            'medical-college' => 'medical-college',
+            'kazhakkoottam' => 'kazhakkoottam',
+            'east-fort' => 'east-fort',
+            'vizhinjam' => 'vizhinjam',
+            'kovalam' => 'kovalam',
         ];
 
         return $legacyMap[$area] ?? null;

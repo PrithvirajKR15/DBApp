@@ -152,6 +152,13 @@ $type = $driverType ?? 'store';
     .status-badge-custom.offline .dot {
         background-color: #8592a3;
     }
+    .status-badge-custom.transit {
+        background-color: rgba(0, 186, 209, 0.12) !important;
+        color: #00bad1 !important;
+    }
+    .status-badge-custom.transit .dot {
+        background-color: #00bad1;
+    }
     .status-badge-custom.pending {
         background-color: rgba(255, 171, 0, 0.1) !important;
         color: #ffab00 !important;
@@ -165,6 +172,13 @@ $type = $driverType ?? 'store';
     }
     .status-badge-custom.suspended .dot {
         background-color: #ff3e1d;
+    }
+    .status-badge-custom.rejected {
+        background-color: rgba(234, 84, 85, 0.12) !important;
+        color: #ea5455 !important;
+    }
+    .status-badge-custom.rejected .dot {
+        background-color: #ea5455;
     }
     .dot {
         display: inline-block;
@@ -200,9 +214,80 @@ $type = $driverType ?? 'store';
         background-color: #8592a3;
         border-color: #8592a3 !important;
     }
+    .btn-availability-toggle.transit {
+        color: #00bad1;
+        border-color: rgba(0, 186, 209, 0.45) !important;
+        background-color: rgba(0, 186, 209, 0.08);
+    }
+    .btn-availability-toggle.transit:hover:not(:disabled) {
+        color: #fff;
+        background-color: #00bad1;
+        border-color: #00bad1 !important;
+    }
     .btn-availability-toggle:disabled {
         opacity: 0.45;
         cursor: not-allowed;
+    }
+    .availability-dropdown .dropdown-menu {
+        min-width: 168px;
+        padding: 6px;
+        border-radius: 10px;
+        border-color: #eef2f7;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+    }
+    .availability-dropdown .dropdown-item {
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 8px 10px;
+        color: #475569;
+    }
+    .availability-dropdown .dropdown-item.active,
+    .availability-dropdown .dropdown-item:active {
+        background-color: rgba(255, 122, 0, 0.08);
+        color: #ff7a00;
+    }
+    .availability-dropdown .dropdown-item.disabled {
+        opacity: 0.7;
+    }
+    .availability-dropdown .dropdown-header {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        color: #94a3b8;
+        padding: 4px 10px 6px;
+    }
+
+    .bulk-actions-bar {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 12px 16px;
+        margin-bottom: 12px;
+        background: #fff8f2;
+        border: 1px solid rgba(255, 122, 0, 0.25);
+        border-radius: 10px;
+    }
+    .bulk-actions-bar.is-visible {
+        display: flex;
+    }
+    .bulk-actions-bar .bulk-count {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #32475c;
+    }
+    .bulk-actions-bar .bulk-count span {
+        color: #ff7a00;
+    }
+    .bulk-actions-bar .btn {
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        height: 34px;
+        padding: 6px 12px;
     }
 
     /* Table Styles */
@@ -321,6 +406,77 @@ $type = $driverType ?? 'store';
         font-size: 0.8rem;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+
+    /* Compact cute toasts */
+    .app-toast-stack {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 1090;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        pointer-events: none;
+    }
+    .app-toast {
+        pointer-events: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        max-width: min(280px, calc(100vw - 2rem));
+        padding: 8px 12px 8px 8px;
+        background: #ffffff;
+        border: 1px solid #eef2f7;
+        border-radius: 999px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        color: #475569;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.3;
+        animation: app-toast-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .app-toast.is-leaving {
+        animation: app-toast-out 0.22s ease forwards;
+    }
+    .app-toast__icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 0.85rem;
+    }
+    .app-toast__msg {
+        padding-right: 4px;
+        word-break: break-word;
+    }
+    .app-toast--success .app-toast__icon {
+        background: #e8faf0;
+        color: #28c76f;
+    }
+    .app-toast--error .app-toast__icon {
+        background: #fdeeee;
+        color: #ea5455;
+    }
+    .app-toast--warning .app-toast__icon {
+        background: #fff5e5;
+        color: #ff9f43;
+    }
+    .app-toast--info .app-toast__icon {
+        background: #fff4eb;
+        color: #ff7a00;
+    }
+    @keyframes app-toast-in {
+        from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes app-toast-out {
+        from { opacity: 1; transform: translateY(0) scale(1); }
+        to { opacity: 0; transform: translateY(-6px) scale(0.96); }
+    }
 </style>
 
 @php
@@ -381,16 +537,16 @@ $zonesList = $zones ?? collect();
         </div>
     </div>
     
-    <!-- Pending Card -->
+    <!-- Transit Card -->
     <div class="col-sm-6 col-lg-3 mb-3 mb-lg-0">
         <div class="card shadow-none border summary-card">
             <div class="card-body d-flex align-items-center p-3">
-                <div class="d-flex align-items-center justify-content-center rounded-circle me-3" style="width: 48px; height: 48px; background-color: rgba(255, 171, 0, 0.1); color: #ffab00;">
-                    <i class="bx bx-time" style="font-size: 1.5rem;"></i>
+                <div class="d-flex align-items-center justify-content-center rounded-circle me-3" style="width: 48px; height: 48px; background-color: rgba(0, 186, 209, 0.12); color: #00bad1;">
+                    <i class="bx bx-trip" style="font-size: 1.5rem;"></i>
                 </div>
                 <div>
-                    <small class="text-uppercase fw-semibold text-muted d-block" style="font-size: 0.75rem; letter-spacing: 0.5px;">Pending</small>
-                    <h4 class="mb-0 fw-bold text-body mt-1" id="card-pending-val" style="font-size: 1.6rem; line-height: 1.2;">0</h4>
+                    <small class="text-uppercase fw-semibold text-muted d-block" style="font-size: 0.75rem; letter-spacing: 0.5px;">Transit</small>
+                    <h4 class="mb-0 fw-bold text-body mt-1" id="card-transit-val" style="font-size: 1.6rem; line-height: 1.2;">0</h4>
                 </div>
             </div>
         </div>
@@ -428,8 +584,12 @@ $zonesList = $zones ?? collect();
                 <div class="d-flex align-items-center gap-2 flex-wrap" id="status-filter-pills">
                     <button type="button" class="btn btn-pill filter-pill active" data-status="all">All</button>
                     <button type="button" class="btn btn-pill filter-pill" data-status="online">Online</button>
+                    <button type="button" class="btn btn-pill filter-pill" data-status="transit">Transit</button>
                     <button type="button" class="btn btn-pill filter-pill" data-status="offline">Offline</button>
-                    <button type="button" class="btn btn-pill filter-pill" data-status="pending">Pending</button>
+                    @if ($type !== 'zone')
+                    <button type="button" class="btn btn-pill filter-pill" data-status="pending">Pending Review</button>
+                    <button type="button" class="btn btn-pill filter-pill" data-status="rejected">Rejected</button>
+                    @endif
                     <button type="button" class="btn btn-pill filter-pill" data-status="suspended">Suspended</button>
                 </div>
             </div>
@@ -479,13 +639,54 @@ $zonesList = $zones ?? collect();
     </div>
 </div>
 
+<!-- Bulk selection actions -->
+<div class="bulk-actions-bar" id="bulk-actions-bar">
+    <div class="bulk-count">
+        <i class="bx bx-check-square me-1 text-primary-orange" style="color: #ff7a00;"></i>
+        <span id="bulk-selected-count">0</span> selected
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bx bx-wifi me-1"></i> Availability
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><h6 class="dropdown-header">Set availability</h6></li>
+                <li><a class="dropdown-item" href="javascript:void(0);" onclick="bulkSetAvailability('Online')"><i class="bx bx-wifi me-2 text-success"></i> Online</a></li>
+                <li><a class="dropdown-item" href="javascript:void(0);" onclick="bulkSetAvailability('Transit')"><i class="bx bx-trip me-2" style="color:#00bad1;"></i> Transit</a></li>
+                <li><a class="dropdown-item" href="javascript:void(0);" onclick="bulkSetAvailability('Offline')"><i class="bx bx-wifi-off me-2 text-secondary"></i> Offline</a></li>
+            </ul>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bx bx-user-check me-1"></i> Account Status
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><h6 class="dropdown-header">Set account status</h6></li>
+                <li><a class="dropdown-item" href="javascript:void(0);" onclick="bulkSetAccountStatus('Active')"><i class="bx bx-check-circle me-2 text-success"></i> Active</a></li>
+                @if ($type !== 'zone')
+                <li><a class="dropdown-item" href="javascript:void(0);" onclick="bulkSetAccountStatus('Pending')"><i class="bx bx-time me-2 text-warning"></i> Pending Review</a></li>
+                <li><a class="dropdown-item" href="javascript:void(0);" onclick="bulkSetAccountStatus('Rejected')"><i class="bx bx-x-circle me-2 text-danger"></i> Rejected</a></li>
+                @endif
+                <li><a class="dropdown-item" href="javascript:void(0);" onclick="bulkSetAccountStatus('Suspended')"><i class="bx bx-block me-2 text-danger"></i> Suspended</a></li>
+            </ul>
+        </div>
+        <button type="button" class="btn btn-outline-danger" onclick="bulkDeleteDrivers()">
+            <i class="bx bx-trash me-1"></i> Delete
+        </button>
+        <button type="button" class="btn btn-link text-muted px-2" onclick="clearDriverSelection()" title="Clear selection">
+            Clear
+        </button>
+    </div>
+</div>
+
 <!-- List View Container (Table) -->
 <div id="list-view-container">
     <div class="card shadow-none border" style="border-radius: 12px; background-color: #ffffff; overflow: hidden;">
         <div class="table-responsive text-nowrap">
             <table class="table table-hover mb-0" id="drivers-table">
                 <thead>
-                    <tr class="table-light border-bottom" style="background-color: #fcfcfc;">
+                    <tr class="table-light border-bottom">
                         <th style="width: 40px; padding: 16px 20px;">
                             <div class="form-check m-0">
                                 <input class="form-check-input select-all-checkbox" type="checkbox" id="selectAll">
@@ -654,19 +855,9 @@ $zonesList = $zones ?? collect();
                                         <span class="input-group-text border-0 bg-transparent ps-3"><i class="bx bx-pin text-muted" style="font-size: 1.1rem;"></i></span>
                                         <select class="form-select border-0 bg-transparent ps-2" id="driver-zone" style="box-shadow: none; font-size: 0.88rem; height: 38px;">
                                             <option value="" disabled selected>Select zone</option>
-                                            @if($zonesList->isNotEmpty())
-                                                @foreach($zonesList as $zoneOption)
-                                                    <option value="{{ $zoneOption->id }}" data-code="{{ $zoneOption->code }}">{{ $zoneOption->name }}</option>
-                                                @endforeach
-                                            @else
-                                                <option value="Downtown Zone">Downtown Zone</option>
-                                                <option value="Northwest District">Northwest District</option>
-                                                <option value="Southeast Hub">Southeast Hub</option>
-                                                <option value="Uptown Area">Uptown Area</option>
-                                                <option value="East Side">East Side</option>
-                                                <option value="West End">West End</option>
-                                                <option value="Midtown">Midtown</option>
-                                            @endif
+                                            @foreach($zonesList as $zoneOption)
+                                                <option value="{{ $zoneOption->id }}" data-code="{{ $zoneOption->code }}">{{ $zoneOption->name }}</option>
+                                            @endforeach
                                         </select>
                                     </div>
                                 </div>
@@ -677,17 +868,9 @@ $zonesList = $zones ?? collect();
                                         <span class="input-group-text border-0 bg-transparent ps-3"><i class="bx bx-store text-muted" style="font-size: 1.1rem;"></i></span>
                                         <select class="form-select border-0 bg-transparent ps-2" id="driver-store" style="box-shadow: none; font-size: 0.88rem; height: 38px;">
                                             <option value="" disabled selected>Select store</option>
-                                            @if($storesList->isNotEmpty())
-                                                @foreach($storesList as $storeOption)
-                                                    <option value="{{ $storeOption->id }}">{{ $storeOption->name }}</option>
-                                                @endforeach
-                                            @else
-                                                <option value="Amanora Mall Store">Amanora Mall Store</option>
-                                                <option value="Phoenix Marketcity Store">Phoenix Marketcity Store</option>
-                                                <option value="MG Road Express">MG Road Express</option>
-                                                <option value="Baner Delivery Hub">Baner Delivery Hub</option>
-                                                <option value="Koregaon Park Store">Koregaon Park Store</option>
-                                            @endif
+                                            @foreach($storesList as $storeOption)
+                                                <option value="{{ $storeOption->id }}">{{ $storeOption->name }}</option>
+                                            @endforeach
                                         </select>
                                     </div>
                                 </div>
@@ -723,15 +906,23 @@ $zonesList = $zones ?? collect();
                                 <div class="col-md-6">
                                     <label for="driver-status" class="form-label text-body fw-semibold" id="driver-status-label">Initial Status</label>
                                     <select class="form-select" id="driver-status" style="border-radius: 8px; font-size: 0.88rem; height: 38px;">
+                                        @if ($type === 'zone')
                                         <option value="Pending">Pending Review</option>
                                         <option value="Active" selected>Active</option>
                                         <option value="Suspended">Suspended</option>
+                                        @else
+                                        <option value="Pending">Pending Review</option>
+                                        <option value="Active" selected>Active</option>
+                                        <option value="Rejected">Rejected</option>
+                                        <option value="Suspended">Suspended</option>
+                                        @endif
                                     </select>
                                 </div>
                                 <div class="col-md-6" id="driver-availability-section">
                                     <label for="driver-availability" class="form-label text-body fw-semibold">Availability</label>
                                     <select class="form-select" id="driver-availability" style="border-radius: 8px; font-size: 0.88rem; height: 38px;">
                                         <option value="Online">Online</option>
+                                        <option value="Transit">Transit</option>
                                         <option value="Offline" selected>Offline</option>
                                     </select>
                                 </div>
@@ -749,20 +940,11 @@ $zonesList = $zones ?? collect();
                                     <p class="text-muted small mb-3">Note: The primary assigned zone is selected in Personal Info. Other selected zones will be saved as secondary service areas.</p>
                                     
                                     <div class="row g-3" id="service-areas-grid">
+                                        @foreach ($zonesList as $zoneOption)
                                         @php
-                                        $allAreas = $zonesList->isNotEmpty()
-                                            ? $zonesList->mapWithKeys(fn ($zone) => [$zone->code => $zone->name])->all()
-                                            : [
-                                                'downtown-zone' => 'Downtown Zone',
-                                                'northwest-district' => 'Northwest District',
-                                                'southeast-hub' => 'Southeast Hub',
-                                                'uptown-area' => 'Uptown Area',
-                                                'east-side' => 'East Side',
-                                                'west-end' => 'West End',
-                                                'midtown' => 'Midtown',
-                                            ];
+                                            $key = $zoneOption->code;
+                                            $label = $zoneOption->name;
                                         @endphp
-                                        @foreach ($allAreas as $key => $label)
                                         <div class="col-sm-6">
                                             <div class="p-3 border rounded d-flex align-items-center justify-content-between service-area-item-card" id="area-card-{{ $key }}" style="background-color: #f8fafc; border-color: #e2e8f0; border-radius: 8px; transition: all 0.2s ease;">
                                                 <div class="form-check mb-0">
@@ -930,38 +1112,71 @@ $zonesList = $zones ?? collect();
 <!-- JavaScript Logic for Driver Management -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // SweetAlert2 Toast configuration
-    const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
+    function getToastStack() {
+        let stack = document.getElementById('app-toast-stack');
+        if (!stack) {
+            stack = document.createElement('div');
+            stack.id = 'app-toast-stack';
+            stack.className = 'app-toast-stack';
+            document.body.appendChild(stack);
         }
-    });
+        return stack;
+    }
 
     window.showToast = function(title, message, type) {
-        let swalIcon = 'success';
-        if (type === 'warning') swalIcon = 'warning';
-        else if (type === 'info') swalIcon = 'info';
-        else if (type === 'error') swalIcon = 'error';
+        const toastType = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'success';
+        const icons = {
+            success: 'bx-check',
+            error: 'bx-x',
+            warning: 'bx-error',
+            info: 'bx-info-circle',
+        };
+        const text = message || title || '';
 
-        Toast.fire({
-            icon: swalIcon,
-            title: message || title
-        });
+        const toast = document.createElement('div');
+        toast.className = `app-toast app-toast--${toastType}`;
+        toast.setAttribute('role', 'status');
+        toast.innerHTML = `
+            <span class="app-toast__icon"><i class="bx ${icons[toastType]}"></i></span>
+            <span class="app-toast__msg"></span>
+        `;
+        toast.querySelector('.app-toast__msg').textContent = text;
+
+        const stack = getToastStack();
+        stack.appendChild(toast);
+
+        let timer;
+        const dismiss = () => {
+            if (toast.classList.contains('is-leaving')) return;
+            clearTimeout(timer);
+            toast.classList.add('is-leaving');
+            setTimeout(() => toast.remove(), 220);
+        };
+        const schedule = (ms) => {
+            clearTimeout(timer);
+            timer = setTimeout(dismiss, ms);
+        };
+
+        schedule(2600);
+        toast.addEventListener('mouseenter', () => clearTimeout(timer));
+        toast.addEventListener('mouseleave', () => schedule(1200));
+        toast.addEventListener('click', dismiss);
     };
 
-    /** Account status for Pending/Suspended; otherwise operational availability. */
+    /** Account status for Pending/Rejected/Suspended; otherwise operational availability. */
     function listStatus(driver) {
         const account = driver.status || 'Pending';
         if (account === 'Pending' || account === 'Suspended' || account === 'Rejected') {
             return account;
         }
-        return driver.availability === 'Online' ? 'Online' : 'Offline';
+        if (driver.availability === 'Online') return 'Online';
+        if (driver.availability === 'Transit') return 'Transit';
+        return 'Offline';
+    }
+
+    /** Frontend label for account/availability status badges. */
+    function formatStatusLabel(status) {
+        return status === 'Pending' ? 'Pending Review' : status;
     }
 
     function normalizeDriverRecord(driver) {
@@ -983,51 +1198,96 @@ document.addEventListener('DOMContentLoaded', function () {
         return (driver.status || '') === 'Active';
     }
 
-    function availabilityToggleButtonHtml(driver) {
-        const isOnline = driver.availability === 'Online';
-        const enabled = canToggleAvailability(driver);
-        const nextLabel = isOnline ? 'Offline' : 'Online';
-        const title = enabled
-            ? `Set ${nextLabel}`
-            : 'Only Active drivers can be toggled Online/Offline';
-        const stateClass = isOnline ? 'online' : 'offline';
-        const icon = isOnline ? 'bx-wifi' : 'bx-wifi-off';
-        const disabledAttr = enabled ? '' : 'disabled';
-
-        return `
-            <button type="button"
-                class="btn btn-sm btn-icon btn-outline-secondary rounded-circle btn-availability-toggle ${stateClass}"
-                onclick="toggleDriverAvailability('${driver.id}')"
-                title="${title}"
-                ${disabledAttr}
-                style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">
-                <i class="bx ${icon}" style="font-size: 1.15rem;"></i>
-            </button>
-        `;
+    function availabilityMeta(availability) {
+        if (availability === 'Online') {
+            return { stateClass: 'online', icon: 'bx-wifi', label: 'Online' };
+        }
+        if (availability === 'Transit') {
+            return { stateClass: 'transit', icon: 'bx-trip', label: 'Transit' };
+        }
+        return { stateClass: 'offline', icon: 'bx-wifi-off', label: 'Offline' };
     }
 
-    function availabilityToggleMenuItemHtml(driver) {
+    function availabilityOptionsHtml(driver, { includeHeader = false } = {}) {
         if (!canToggleAvailability(driver)) {
             return `
                 <a class="dropdown-item disabled" href="javascript:void(0);" tabindex="-1" aria-disabled="true">
-                    <i class="bx bx-wifi-off me-2"></i> Availability locked
+                    <i class="bx bx-lock-alt me-2"></i> Availability locked
                 </a>
             `;
         }
 
-        const isOnline = driver.availability === 'Online';
-        const nextLabel = isOnline ? 'Offline' : 'Online';
-        const icon = isOnline ? 'bx-wifi-off' : 'bx-wifi';
+        const current = driver.availability || 'Offline';
+        const header = includeHeader
+            ? `<h6 class="dropdown-header">Availability</h6>`
+            : '';
+
+        const items = ['Online', 'Transit', 'Offline'].map((value) => {
+            const meta = availabilityMeta(value);
+            const isCurrent = value === current;
+            if (isCurrent) {
+                return `
+                    <a class="dropdown-item active disabled" href="javascript:void(0);" tabindex="-1" aria-disabled="true">
+                        <i class="bx ${meta.icon} me-2"></i> ${value}
+                        <i class="bx bx-check float-end mt-1"></i>
+                    </a>
+                `;
+            }
+            return `
+                <a class="dropdown-item" href="javascript:void(0);" onclick="changeDriverStatus('${driver.id}', '${value}')">
+                    <i class="bx ${meta.icon} me-2"></i> ${value}
+                </a>
+            `;
+        }).join('');
+
+        return `${header}${items}`;
+    }
+
+    function availabilityToggleButtonHtml(driver) {
+        const current = driver.availability || 'Offline';
+        const enabled = canToggleAvailability(driver);
+        const meta = availabilityMeta(current);
+        const title = enabled
+            ? 'Change availability'
+            : 'Only Active drivers can change availability';
+
+        if (!enabled) {
+            return `
+                <button type="button"
+                    class="btn btn-sm btn-icon btn-outline-secondary rounded-circle btn-availability-toggle ${meta.stateClass}"
+                    title="${title}"
+                    disabled
+                    style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">
+                    <i class="bx ${meta.icon}" style="font-size: 1.15rem;"></i>
+                </button>
+            `;
+        }
 
         return `
-            <a class="dropdown-item" href="javascript:void(0);" onclick="toggleDriverAvailability('${driver.id}')">
-                <i class="bx ${icon} me-2"></i> Set ${nextLabel}
-            </a>
+            <div class="dropdown availability-dropdown">
+                <button type="button"
+                    class="btn btn-sm btn-icon btn-outline-secondary rounded-circle btn-availability-toggle ${meta.stateClass}"
+                    data-bs-toggle="dropdown"
+                    data-bs-auto-close="true"
+                    aria-expanded="false"
+                    title="${title}"
+                    style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">
+                    <i class="bx ${meta.icon}" style="font-size: 1.15rem;"></i>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end">
+                    ${availabilityOptionsHtml(driver, { includeHeader: true })}
+                </div>
+            </div>
         `;
+    }
+
+    function availabilityToggleMenuItemHtml(driver) {
+        return availabilityOptionsHtml(driver, { includeHeader: true });
     }
 
     // Drivers loaded via AJAX from the list endpoint
     let allDrivers = [];
+    const selectedDriverIds = new Set();
     
     // Dynamic page type passed from Laravel route ('store' or 'zone')
     const pageType = "{{ $type }}";
@@ -1160,19 +1420,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function getServiceAreaDefinitions() {
-        if (zoneAreas.length) {
-            return zoneAreas.map((zone) => ({ key: zone.code, val: zone.name }));
-        }
+        return zoneAreas.map((zone) => ({ key: zone.code, val: zone.name }));
+    }
 
-        return [
-            { key: 'downtown-zone', val: 'Downtown Zone' },
-            { key: 'northwest-district', val: 'Northwest District' },
-            { key: 'southeast-hub', val: 'Southeast Hub' },
-            { key: 'uptown-area', val: 'Uptown Area' },
-            { key: 'east-side', val: 'East Side' },
-            { key: 'west-end', val: 'West End' },
-            { key: 'midtown', val: 'Midtown' },
-        ];
+    function resolveAvatarUrl(avatar) {
+        if (!avatar) {
+            return '/assets/img/avatars/1.png';
+        }
+        if (
+            avatar.startsWith('data:image')
+            || avatar.startsWith('http://')
+            || avatar.startsWith('https://')
+            || avatar.startsWith('/')
+        ) {
+            return avatar;
+        }
+        if (avatar.includes('/')) {
+            return `/storage/${avatar.replace(/^storage\//, '')}`;
+        }
+        return `/assets/img/avatars/${avatar}`;
     }
 
     function applyStatsDelta(listStatusValue, direction) {
@@ -1180,6 +1446,7 @@ document.addEventListener('DOMContentLoaded', function () {
         statsState.total += delta;
         if (listStatusValue === 'Online') statsState.online += delta;
         else if (listStatusValue === 'Offline') statsState.offline += delta;
+        else if (listStatusValue === 'Transit') statsState.transit += delta;
         else if (listStatusValue === 'Pending') statsState.pending += delta;
         else if (listStatusValue === 'Suspended') statsState.suspended += delta;
     }
@@ -1205,24 +1472,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const data = await parseJsonResponse(response);
             const driver = data.driver;
+            const shaped = normalizeDriverRecord(driver);
+            const belongsOnFleetList = pageType !== 'zone'
+                || ['Active', 'Suspended'].includes(shaped.status);
 
             if (isEdit) {
                 const index = allDrivers.findIndex((d) => d.id === code);
                 if (index > -1) {
                     const oldStatus = listStatus(allDrivers[index]);
-                    const shaped = normalizeDriverRecord(driver);
-                    if (oldStatus !== listStatus(shaped)) {
+                    if (belongsOnFleetList) {
+                        if (oldStatus !== listStatus(shaped)) {
+                            applyStatsDelta(oldStatus, 'remove');
+                            applyStatsDelta(listStatus(shaped), 'add');
+                        }
+                        allDrivers[index] = shaped;
+                    } else {
                         applyStatsDelta(oldStatus, 'remove');
-                        applyStatsDelta(listStatus(shaped), 'add');
+                        allDrivers.splice(index, 1);
                     }
-                    allDrivers[index] = shaped;
+                } else if (belongsOnFleetList) {
+                    allDrivers.unshift(shaped);
+                    applyStatsDelta(listStatus(shaped), 'add');
                 }
                 showToast('Success', data.message || 'Driver profile updated successfully!', 'success');
-            } else {
-                const shaped = normalizeDriverRecord(driver);
+            } else if (belongsOnFleetList) {
                 allDrivers.unshift(shaped);
                 applyStatsDelta(listStatus(shaped), 'add');
                 showToast('Success', data.message || 'Driver profile created successfully!', 'success');
+            } else {
+                showToast('Success', data.message || 'Application submitted for approval.', 'success');
             }
 
             driverModal.hide();
@@ -1239,6 +1517,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let statsState = {
         online: 0,
         offline: 0,
+        transit: 0,
         pending: 0,
         suspended: 0,
         total: 0
@@ -1249,6 +1528,7 @@ document.addEventListener('DOMContentLoaded', function () {
         statsState = {
             online: filteredList.filter(d => listStatus(d) === 'Online').length,
             offline: filteredList.filter(d => listStatus(d) === 'Offline').length,
+            transit: filteredList.filter(d => listStatus(d) === 'Transit').length,
             pending: filteredList.filter(d => listStatus(d) === 'Pending').length,
             suspended: filteredList.filter(d => listStatus(d) === 'Suspended').length,
             total: filteredList.length
@@ -1329,7 +1609,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function formatDate(dateStr) {
         if (!dateStr) return '';
-        const date = new Date(dateStr + 'T00:00:00');
+        const normalized = String(dateStr).slice(0, 10);
+        const date = new Date(normalized + 'T00:00:00');
+        if (Number.isNaN(date.getTime())) return '';
         const options = { year: 'numeric', month: 'short', day: 'numeric' };
         return date.toLocaleDateString('en-US', options);
     }
@@ -1338,7 +1620,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateStatsUI() {
         document.getElementById('card-active-val').textContent = statsState.online;
         document.getElementById('card-offline-val').textContent = statsState.offline;
-        document.getElementById('card-pending-val').textContent = statsState.pending;
+        document.getElementById('card-transit-val').textContent = statsState.transit;
         document.getElementById('card-suspended-val').textContent = statsState.suspended;
         
         document.getElementById('showing-total').textContent = statsState.total;
@@ -1417,14 +1699,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     
                 const shownStatus = listStatus(d);
                 const statusClass = shownStatus.toLowerCase();
-                const avatarSrc = d.avatar.startsWith('data:image') ? d.avatar : d.avatar;
+                const statusLabel = formatStatusLabel(shownStatus);
+                const avatarSrc = resolveAvatarUrl(d.avatar);
                 const locationText = pageType === 'store' ? escapeHtml(d.store) : escapeHtml(d.zone);
                 
                 return `
                     <tr class="driver-row border-bottom" id="row-${d.id}">
                         <td style="padding: 14px 20px; vertical-align: middle;">
                             <div class="form-check m-0">
-                                <input class="form-check-input row-checkbox" type="checkbox" value="${d.id}">
+                                <input class="form-check-input row-checkbox" type="checkbox" value="${d.id}" ${selectedDriverIds.has(d.id) ? 'checked' : ''}>
                             </div>
                         </td>
                         <td style="padding: 14px 20px; vertical-align: middle;">
@@ -1444,7 +1727,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td style="padding: 14px 20px; vertical-align: middle;">
                             <span class="status-badge-custom ${statusClass}">
                                 <span class="dot"></span>
-                                <span>${shownStatus}</span>
+                                <span>${statusLabel}</span>
                             </span>
                         </td>
                         <td style="padding: 14px 20px; vertical-align: middle;">
@@ -1495,7 +1778,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     
                 const shownStatus = listStatus(d);
                 const statusClass = shownStatus.toLowerCase();
-                const avatarSrc = d.avatar.startsWith('data:image') ? d.avatar : `/assets/img/avatars/${d.avatar}`;
+                const statusLabel = formatStatusLabel(shownStatus);
+                const avatarSrc = resolveAvatarUrl(d.avatar);
                 const locationLabel = pageType === 'store' ? 'Store:' : 'Zone:';
                 const locationText = pageType === 'store' ? escapeHtml(d.store) : escapeHtml(d.zone);
                 
@@ -1506,12 +1790,12 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <!-- Card Header -->
                                 <div class="d-flex align-items-center justify-content-between mb-3">
                                     <div class="form-check m-0">
-                                        <input class="form-check-input row-checkbox" type="checkbox" value="${d.id}">
+                                        <input class="form-check-input row-checkbox" type="checkbox" value="${d.id}" ${selectedDriverIds.has(d.id) ? 'checked' : ''}>
                                         <span class="ms-1 text-muted fw-semibold" style="font-size: 0.8rem; font-family: monospace;">${d.id}</span>
                                     </div>
                                     <span class="status-badge-custom ${statusClass}">
                                         <span class="dot"></span>
-                                        <span>${shownStatus}</span>
+                                        <span>${statusLabel}</span>
                                     </span>
                                 </div>
                                 
@@ -1549,6 +1833,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         </button>
                                         <div class="dropdown-menu dropdown-menu-end">
                                             ${availabilityToggleMenuItemHtml(d)}
+                                            <div class="dropdown-divider"></div>
                                             <a class="dropdown-item" href="/fleet/drivers/${d.id}/profile?type=${pageType}"><i class="bx bx-user me-2"></i> View Driver Profile</a>
                                             <a class="dropdown-item" href="javascript:void(0);" onclick="openEditModal('${d.id}')"><i class="bx bx-edit-alt me-2"></i> Edit Profile</a>
                                             <div class="dropdown-divider"></div>
@@ -1563,8 +1848,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }).join('');
         }
 
-        // Reinforce select all checkbox state
-        document.getElementById('selectAll').checked = false;
+        // Sync select-all + bulk bar with preserved selection
+        syncSelectionUI();
     }
 
     // Toggle list vs grid layout view
@@ -1627,7 +1912,26 @@ document.addEventListener('DOMContentLoaded', function () {
         const checkboxes = document.querySelectorAll('.row-checkbox');
         checkboxes.forEach(cb => {
             cb.checked = this.checked;
+            if (this.checked) {
+                selectedDriverIds.add(cb.value);
+            } else {
+                selectedDriverIds.delete(cb.value);
+            }
         });
+        updateBulkActionsBar();
+    });
+
+    document.addEventListener('change', function (event) {
+        const target = event.target;
+        if (!target.classList || !target.classList.contains('row-checkbox')) {
+            return;
+        }
+        if (target.checked) {
+            selectedDriverIds.add(target.value);
+        } else {
+            selectedDriverIds.delete(target.value);
+        }
+        syncSelectionUI();
     });
 
     // Avatar file input listener for instant circular image preview
@@ -1647,23 +1951,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Helper mappings and logic for multi-selectable Service Areas (Zone-wise drivers only)
+    // Service area helpers for zone drivers (codes/names come from DB zones)
     function getAreaKeyFromLabel(label) {
-        const fromZones = zoneAreas.find((zone) => zone.name === label);
-        if (fromZones) {
-            return fromZones.code;
-        }
-
-        const mapping = {
-            'Downtown Zone': 'downtown-zone',
-            'Northwest District': 'northwest-district',
-            'Southeast Hub': 'southeast-hub',
-            'Uptown Area': 'uptown-area',
-            'East Side': 'east-side',
-            'West End': 'west-end',
-            'Midtown': 'midtown',
-        };
-        return mapping[label] || '';
+        return zoneAreas.find((zone) => zone.name === label)?.code || '';
     }
 
     function getCurrentlyCheckedSecondaryKeys() {
@@ -1672,7 +1962,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function updateServiceAreaCheckboxes(selectedZone, checkedSecondaryKeys = []) {
         const areas = getServiceAreaDefinitions();
-        const selectedZoneName = typeof selectedZone === 'string'
+        const selectedZoneName = typeof selectedZone === 'string' && !/^\d+$/.test(selectedZone)
             ? selectedZone
             : zoneAreas.find((zone) => String(zone.id) === String(selectedZone))?.name || '';
 
@@ -1693,7 +1983,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // Re-sync all visual statuses
         areas.forEach(area => {
-            const chk = document.getElementById(area.id);
+            const chk = document.getElementById(`modal-area-${area.key}`);
             const card = document.getElementById(`area-card-${area.key}`);
             const wrapper = document.getElementById(`primary-radio-wrapper-${area.key}`);
             const secBadge = document.getElementById(`label-secondary-${area.key}`);
@@ -1999,14 +2289,14 @@ document.addEventListener('DOMContentLoaded', function () {
             statusSelect.value = 'Active';
             availabilitySelect.value = 'Offline';
         } else {
-            statusSection.style.display = 'block';
+            statusSection.style.display = '';
             statusLabel.textContent = 'Initial Status';
             statusSelect.setAttribute('required', 'true');
             statusSelect.value = 'Pending';
             availabilitySelect.value = 'Offline';
         }
         if (availabilitySection) {
-            availabilitySection.style.display = isStore ? 'none' : 'block';
+            availabilitySection.style.display = isStore ? 'none' : '';
         }
         setDocumentFieldsRequired(true);
 
@@ -2065,11 +2355,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const statusSection = document.getElementById('driver-status-section');
         const statusLabel = document.getElementById('driver-status-label');
         const availabilitySection = document.getElementById('driver-availability-section');
-        statusSection.style.display = 'block';
+        statusSection.style.display = '';
         statusLabel.textContent = 'Account Status';
         document.getElementById('driver-status').setAttribute('required', 'true');
         if (availabilitySection) {
-            availabilitySection.style.display = 'block';
+            availabilitySection.style.display = '';
         }
 
         // Select correct elements on load
@@ -2135,9 +2425,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const previewImg = document.getElementById('avatarPreviewImg');
         const placeholderIcon = document.getElementById('avatarPlaceholderIcon');
         
-        if (driver.avatar && (driver.avatar.startsWith('data:image') || driver.avatar.match(/\.(png|jpg|jpeg|gif)$/i))) {
-            const avatarSrc = driver.avatar.startsWith('data:image') ? driver.avatar : `/assets/img/avatars/${driver.avatar}`;
-            previewImg.src = avatarSrc;
+        if (driver.avatar) {
+            previewImg.src = resolveAvatarUrl(driver.avatar);
             previewImg.style.display = 'block';
             placeholderIcon.style.display = 'none';
         } else {
@@ -2173,25 +2462,187 @@ document.addEventListener('DOMContentLoaded', function () {
         saveDriverToServer(actionType);
     });
 
-    // Inline status change handler (list badge values: Online/Offline/Pending/Suspended)
-    window.toggleDriverAvailability = function(id) {
-        const driver = allDrivers.find((d) => d.id === id);
-        if (!driver) return;
+    function getSelectedDriverIds() {
+        return Array.from(selectedDriverIds);
+    }
 
-        if (!canToggleAvailability(driver)) {
-            showToast('Unavailable', 'Only Active drivers can be set Online or Offline.', 'warning');
-            return;
+    function updateBulkActionsBar() {
+        const bar = document.getElementById('bulk-actions-bar');
+        const countEl = document.getElementById('bulk-selected-count');
+        const count = selectedDriverIds.size;
+        if (countEl) countEl.textContent = String(count);
+        if (bar) bar.classList.toggle('is-visible', count > 0);
+    }
+
+    function syncSelectionUI() {
+        const checkboxes = Array.from(document.querySelectorAll('.row-checkbox'));
+        checkboxes.forEach((cb) => {
+            cb.checked = selectedDriverIds.has(cb.value);
+        });
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) {
+            selectAll.checked = checkboxes.length > 0 && checkboxes.every((cb) => cb.checked);
+            selectAll.indeterminate = checkboxes.some((cb) => cb.checked) && !selectAll.checked;
         }
+        updateBulkActionsBar();
+    }
 
-        const nextAvailability = driver.availability === 'Online' ? 'Offline' : 'Online';
-        changeDriverStatus(id, nextAvailability);
+    window.clearDriverSelection = function() {
+        selectedDriverIds.clear();
+        syncSelectionUI();
     };
 
+    async function runBulkRequests(ids, requestFactory) {
+        const results = await Promise.allSettled(ids.map((id) => requestFactory(id)));
+        const failed = results.filter((result) => result.status === 'rejected').length;
+        const succeeded = results.length - failed;
+        return { succeeded, failed, total: results.length };
+    }
+
+    async function refreshDriversAfterBulk() {
+        await loadDrivers();
+        // Keep only IDs that still exist after refresh
+        const existing = new Set(allDrivers.map((d) => d.id));
+        Array.from(selectedDriverIds).forEach((id) => {
+            if (!existing.has(id)) selectedDriverIds.delete(id);
+        });
+        syncSelectionUI();
+    }
+
+    window.bulkSetAvailability = async function(availability) {
+        const ids = getSelectedDriverIds();
+        if (!ids.length) return;
+
+        const confirm = await Swal.fire({
+            title: 'Update Availability?',
+            text: `Set ${ids.length} driver${ids.length > 1 ? 's' : ''} to ${availability}?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, update',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                confirmButton: 'btn btn-primary me-2 px-3 py-2',
+                cancelButton: 'btn btn-outline-secondary px-3 py-2'
+            },
+            buttonsStyling: false
+        });
+        if (!confirm.isConfirmed) return;
+
+        const { succeeded, failed } = await runBulkRequests(ids, async (id) => {
+            const response = await fetch(routeForCode(driverApiRoutes.status, id), {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ availability }),
+            });
+            return parseJsonResponse(response);
+        });
+
+        await refreshDriversAfterBulk();
+        if (failed) {
+            showToast('Partial update', `${succeeded} updated, ${failed} failed.`, 'warning');
+        } else {
+            showToast('Updated', `${succeeded} driver${succeeded > 1 ? 's' : ''} set to ${availability}.`, 'success');
+        }
+        clearDriverSelection();
+    };
+
+    window.bulkSetAccountStatus = async function(status) {
+        const ids = getSelectedDriverIds();
+        if (!ids.length) return;
+
+        const label = status === 'Pending' ? 'Pending Review' : status;
+        const confirm = await Swal.fire({
+            title: 'Update Account Status?',
+            text: `Set ${ids.length} driver${ids.length > 1 ? 's' : ''} to ${label}?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, update',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                confirmButton: 'btn btn-primary me-2 px-3 py-2',
+                cancelButton: 'btn btn-outline-secondary px-3 py-2'
+            },
+            buttonsStyling: false
+        });
+        if (!confirm.isConfirmed) return;
+
+        const payload = status === 'Pending' || status === 'Rejected'
+            ? { status, availability: 'Offline' }
+            : status === 'Active'
+                ? { status: 'Active' }
+                : { status };
+
+        const { succeeded, failed } = await runBulkRequests(ids, async (id) => {
+            const response = await fetch(routeForCode(driverApiRoutes.status, id), {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+            return parseJsonResponse(response);
+        });
+
+        await refreshDriversAfterBulk();
+        if (failed) {
+            showToast('Partial update', `${succeeded} updated, ${failed} failed.`, 'warning');
+        } else {
+            showToast('Updated', `${succeeded} driver${succeeded > 1 ? 's' : ''} set to ${label}.`, 'success');
+        }
+        clearDriverSelection();
+    };
+
+    window.bulkDeleteDrivers = async function() {
+        const ids = getSelectedDriverIds();
+        if (!ids.length) return;
+
+        const confirm = await Swal.fire({
+            title: 'Delete Selected Drivers?',
+            text: `This will permanently delete ${ids.length} driver profile${ids.length > 1 ? 's' : ''}.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                confirmButton: 'btn btn-danger me-2 px-3 py-2',
+                cancelButton: 'btn btn-outline-secondary px-3 py-2'
+            },
+            buttonsStyling: false
+        });
+        if (!confirm.isConfirmed) return;
+
+        const { succeeded, failed } = await runBulkRequests(ids, async (id) => {
+            const response = await fetch(routeForCode(driverApiRoutes.destroy, id), {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+            });
+            return parseJsonResponse(response);
+        });
+
+        selectedDriverIds.clear();
+        await refreshDriversAfterBulk();
+        if (failed) {
+            showToast('Partial delete', `${succeeded} deleted, ${failed} failed.`, 'warning');
+        } else {
+            showToast('Deleted', `${succeeded} driver${succeeded > 1 ? 's' : ''} deleted.`, 'warning');
+        }
+    };
+
+    // Inline status change handler (list badge values: Online/Transit/Offline/Pending/Suspended)
     window.changeDriverStatus = function(id, newStatus) {
-        const payload = (newStatus === 'Online' || newStatus === 'Offline')
+        const payload = (newStatus === 'Online' || newStatus === 'Offline' || newStatus === 'Transit')
             ? { availability: newStatus }
             : { status: newStatus };
-        const successLabel = (newStatus === 'Online' || newStatus === 'Offline')
+        const successLabel = (newStatus === 'Online' || newStatus === 'Offline' || newStatus === 'Transit')
             ? `Driver set to ${newStatus}.`
             : `Driver status updated to ${newStatus}.`;
 
@@ -2210,11 +2661,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (driverIndex > -1) {
                     const oldStatus = listStatus(allDrivers[driverIndex]);
                     const shaped = normalizeDriverRecord(data.driver);
-                    if (oldStatus !== listStatus(shaped)) {
-                        applyStatsDelta(oldStatus, 'remove');
+                    const belongsOnFleetList = pageType !== 'zone'
+                        || ['Active', 'Suspended'].includes(shaped.status);
+
+                    applyStatsDelta(oldStatus, 'remove');
+                    if (belongsOnFleetList) {
                         applyStatsDelta(listStatus(shaped), 'add');
+                        allDrivers[driverIndex] = shaped;
+                    } else {
+                        allDrivers.splice(driverIndex, 1);
                     }
-                    allDrivers[driverIndex] = shaped;
                 }
                 updateStatsUI();
                 renderDrivers();

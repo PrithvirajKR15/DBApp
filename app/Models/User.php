@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -67,11 +66,6 @@ class User extends Authenticatable
             'password' => 'hashed',
             'dob' => 'date',
         ];
-    }
-
-    public function getImageAttribute($value)
-    {
-        return $value !== null ? Storage::url($value) : null;
     }
 
     public function role(): BelongsTo

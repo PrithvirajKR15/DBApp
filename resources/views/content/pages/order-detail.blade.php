@@ -90,13 +90,30 @@ $canAssign = !$hasDriver && in_array($order['delivery'], ['new', 'waiting', 'rea
 $canBroadcast = $canAssign;
 
 $areaCoords = [
-    'North Zone' => [40.7829, -73.9654],
-    'Central Zone' => [40.7580, -73.9855],
-    'West Zone' => [40.7465, -74.0014],
-    'East Zone' => [40.7282, -73.9942],
-    'South Zone' => [40.7061, -74.0087],
+    'North Zone' => [8.5241, 76.9366],
+    'Central Zone' => [8.5089, 76.9652],
+    'West Zone' => [8.5235, 76.9280],
+    'East Zone' => [8.5580, 76.8810],
+    'South Zone' => [8.4830, 76.9475],
+    'Pattom' => [8.5241, 76.9366],
+    'Kesavadasapuram' => [8.5360, 76.9360],
+    'Ulloor' => [8.5370, 76.9250],
+    'Murinjapalam' => [8.5300, 76.9450],
+    'Kowdiar' => [8.5089, 76.9652],
+    'Palayam' => [8.5065, 76.9540],
+    'Thampanoor' => [8.4870, 76.9520],
+    'Vellayambalam' => [8.5100, 76.9600],
+    'Statue' => [8.4875, 76.9525],
+    'Sasthamangalam' => [8.5156, 76.9721],
+    'Technopark' => [8.5580, 76.8810],
+    'Peroorkada' => [8.5450, 76.9650],
+    'Medical College' => [8.5235, 76.9280],
+    'Kazhakkoottam' => [8.5680, 76.8700],
+    'East Fort' => [8.4830, 76.9475],
+    'Vizhinjam' => [8.3780, 76.9910],
+    'Kovalam' => [8.4000, 76.9780],
 ];
-$mapLatLng = $areaCoords[$order['area']] ?? [40.7580, -73.9855];
+$mapLatLng = $areaCoords[$order['area']] ?? [8.5241, 76.9366];
 $storeLatLng = [$mapLatLng[0] + 0.012, $mapLatLng[1] - 0.008];
 $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $mapLatLng[1] . '#map=15/' . $mapLatLng[0] . '/' . $mapLatLng[1];
 @endphp

@@ -57,9 +57,9 @@
                         <div class="col-md-6 mb-3">
                             <label for="timezone-select" class="form-label text-body fw-semibold">System Timezone</label>
                             <select class="form-select" id="timezone-select">
-                                <option value="EST" selected>Eastern Standard Time (EST)</option>
+                                <option value="Asia/Kolkata" selected>Indian Standard Time (Asia/Kolkata)</option>
                                 <option value="UTC">Coordinated Universal Time (UTC)</option>
-                                <option value="IST">Indian Standard Time (IST)</option>
+                                <option value="America/New_York">Eastern Time (America/New_York)</option>
                             </select>
                         </div>
                     </div>

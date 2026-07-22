@@ -99,8 +99,8 @@ class ZoneDriverController extends Controller
     public function updateStatus(Request $request, string $code): JsonResponse
     {
         $request->validate([
-            'status' => 'nullable|in:Pending,Active,Suspended',
-            'availability' => 'nullable|in:Online,Offline',
+            'status' => 'nullable|in:Pending,Active,Rejected,Suspended',
+            'availability' => 'nullable|in:Online,Offline,Transit',
         ]);
 
         if (! $request->filled('status') && ! $request->filled('availability')) {
@@ -114,7 +114,9 @@ class ZoneDriverController extends Controller
             $driver = $this->driverService->findZoneDriverByCode($code);
 
             if ($request->filled('status')) {
-                $driver->user->update(['status' => $request->input('status')]);
+                $driver->user->update([
+                    'status' => $this->driverService->normalizeAccountStatus($request->input('status')),
+                ]);
             }
 
             if ($request->filled('availability')) {

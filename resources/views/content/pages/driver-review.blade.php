@@ -702,11 +702,14 @@ $isNavbar = false;
                 <div class="mb-4">
                     <label class="form-label fw-bold text-muted mb-2" style="font-size: 0.8rem; text-transform: uppercase;">Assign Service Area</label>
                     <select class="form-select" id="assigned-area-select" style="height: 44px; border-radius: 8px; border-color: #cbd5e1; font-weight: 500; font-size: 0.88rem;">
-                        <option value="Andheri West" selected>Andheri West, Mumbai (Requested)</option>
-                        <option value="Downtown Zone">Downtown Zone</option>
-                        <option value="Northwest District">Northwest District</option>
-                        <option value="Southeast Hub">Southeast Hub</option>
-                        <option value="Uptown Area">Uptown Area</option>
+                        <option value="Pattom" selected>Pattom (Requested)</option>
+                        <option value="Kesavadasapuram">Kesavadasapuram</option>
+                        <option value="Kowdiar">Kowdiar</option>
+                        <option value="Palayam">Palayam</option>
+                        <option value="Technopark">Technopark</option>
+                        <option value="Medical College">Medical College</option>
+                        <option value="East Fort">East Fort</option>
+                        <option value="Vizhinjam">Vizhinjam</option>
                     </select>
                 </div>
                 
@@ -769,83 +772,101 @@ document.addEventListener('DOMContentLoaded', function() {
         const radiusLabel = mapEl.dataset.radius || '10 km';
         const radiusKm = parseFloat(String(radiusLabel).replace(/[^\d.]/g, '')) || 10;
 
-        // Zone polygons keyed by keyword (mirrors Live Map style)
+        // Zone polygons keyed by keyword (Trivandrum localities around 8.52, 76.94)
         const zoneCatalog = {
-            andheri: {
-                center: [19.1360, 72.8270],
-                zoom: 13,
+            pattom: {
+                center: [8.5241, 76.9366],
+                zoom: 14,
                 coords: [
-                    [19.1550, 72.8150],
-                    [19.1520, 72.8450],
-                    [19.1200, 72.8420],
-                    [19.1180, 72.8120]
+                    [8.5320, 76.9280],
+                    [8.5320, 76.9450],
+                    [8.5160, 76.9450],
+                    [8.5160, 76.9280]
                 ]
             },
-            northwest: {
-                center: [40.7480, -73.9800],
-                zoom: 13,
+            kesavadasapuram: {
+                center: [8.5360, 76.9360],
+                zoom: 14,
                 coords: [
-                    [40.7600, -73.9950],
-                    [40.7580, -73.9600],
-                    [40.7360, -73.9650],
-                    [40.7380, -74.0000]
+                    [8.5440, 76.9280],
+                    [8.5440, 76.9440],
+                    [8.5280, 76.9440],
+                    [8.5280, 76.9280]
                 ]
             },
-            southeast: {
-                center: [40.6950, -73.9850],
-                zoom: 13,
+            kowdiar: {
+                center: [8.5089, 76.9652],
+                zoom: 14,
                 coords: [
-                    [40.7080, -74.0000],
-                    [40.7050, -73.9650],
-                    [40.6820, -73.9700],
-                    [40.6850, -74.0050]
+                    [8.5160, 76.9570],
+                    [8.5160, 76.9730],
+                    [8.5020, 76.9730],
+                    [8.5020, 76.9570]
                 ]
             },
-            downtown: {
-                center: [40.7150, -74.0020],
-                zoom: 13,
+            palayam: {
+                center: [8.5065, 76.9540],
+                zoom: 14,
                 coords: [
-                    [40.7350, -74.0150],
-                    [40.7300, -73.9850],
-                    [40.7020, -73.9900],
-                    [40.7080, -74.0180]
+                    [8.5140, 76.9460],
+                    [8.5140, 76.9620],
+                    [8.4990, 76.9620],
+                    [8.4990, 76.9460]
                 ]
             },
-            uptown: {
-                center: [40.7800, -73.9650],
+            technopark: {
+                center: [8.5580, 76.8810],
                 zoom: 13,
                 coords: [
-                    [40.7950, -73.9800],
-                    [40.7920, -73.9450],
-                    [40.7650, -73.9500],
-                    [40.7680, -73.9850]
+                    [8.5700, 76.8680],
+                    [8.5700, 76.8940],
+                    [8.5460, 76.8940],
+                    [8.5460, 76.8680]
                 ]
             },
-            manhattan: {
-                center: [40.7150, -74.0020],
+            'medical-college': {
+                center: [8.5235, 76.9280],
+                zoom: 14,
+                coords: [
+                    [8.5310, 76.9200],
+                    [8.5310, 76.9360],
+                    [8.5160, 76.9360],
+                    [8.5160, 76.9200]
+                ]
+            },
+            'east-fort': {
+                center: [8.4830, 76.9475],
+                zoom: 14,
+                coords: [
+                    [8.4910, 76.9390],
+                    [8.4910, 76.9560],
+                    [8.4750, 76.9560],
+                    [8.4750, 76.9390]
+                ]
+            },
+            vizhinjam: {
+                center: [8.3780, 76.9910],
                 zoom: 13,
                 coords: [
-                    [40.7350, -74.0150],
-                    [40.7300, -73.9850],
-                    [40.7020, -73.9900],
-                    [40.7080, -74.0180]
+                    [8.3900, 76.9780],
+                    [8.3900, 77.0040],
+                    [8.3660, 77.0040],
+                    [8.3660, 76.9780]
                 ]
             }
         };
 
         function resolveZone(name) {
             const key = String(name || '').toLowerCase();
-            if (key.includes('andheri') || key.includes('jogeshwari') || key.includes('mumbai') || key.includes('versova')) {
-                return zoneCatalog.andheri;
-            }
-            if (key.includes('northwest')) return zoneCatalog.northwest;
-            if (key.includes('southeast')) return zoneCatalog.southeast;
-            if (key.includes('uptown')) return zoneCatalog.uptown;
-            if (key.includes('downtown') || key.includes('midtown') || key.includes('east side')) {
-                return zoneCatalog.downtown;
-            }
-            if (key.includes('manhattan')) return zoneCatalog.manhattan;
-            return zoneCatalog.downtown;
+            if (key.includes('kesavadasapuram')) return zoneCatalog.kesavadasapuram;
+            if (key.includes('pattom') || key.includes('ulloor') || key.includes('murinjapalam')) return zoneCatalog.pattom;
+            if (key.includes('kowdiar') || key.includes('vellayambalam') || key.includes('statue')) return zoneCatalog.kowdiar;
+            if (key.includes('palayam') || key.includes('thampanoor')) return zoneCatalog.palayam;
+            if (key.includes('technopark') || key.includes('sasthamangalam') || key.includes('peroorkada')) return zoneCatalog.technopark;
+            if (key.includes('medical') || key.includes('kazhakkoottam')) return zoneCatalog['medical-college'];
+            if (key.includes('east fort') || key.includes('east-fort') || key.includes('chalai')) return zoneCatalog['east-fort'];
+            if (key.includes('vizhinjam') || key.includes('kovalam')) return zoneCatalog.vizhinjam;
+            return zoneCatalog.pattom;
         }
 
         const zone = resolveZone(zoneName) || resolveZone(serviceArea);
@@ -899,13 +920,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 150);
     })();
     
-    // Load from localstorage to keep status / remarks synced with approvals page
-    let allDrivers = [];
-    if (localStorage.getItem('allDrivers')) {
-        allDrivers = JSON.parse(localStorage.getItem('allDrivers'));
-    }
-    
-    const driver = allDrivers.find(d => d.id === driverId);
+    // Driver data from database (passed by controller)
+    const serverDriver = @json($driver);
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const statusUrl = @json(url('/fleet/approvals/' . $driverId . '/status'));
     
     // Toast setup
     const toastEl = document.getElementById('success-toast');
@@ -927,72 +945,65 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Bind to window for general access
     window.showToast = showToast;
-    
-    // Update view if driver found in localStorage
-    if (driver) {
-        // Sync badge
+
+    function syncStatusBadge(status) {
         const badge = document.getElementById('driver-status-badge');
+        if (!badge) return;
         const text = badge.querySelector('.status-text');
-        text.innerText = driver.status;
-        
+        const normalized = status === 'Pending' ? 'Pending Review' : (status === 'Active' ? 'Active' : status);
+        if (text) text.innerText = normalized;
+
         badge.className = 'status-badge-custom d-inline-flex';
-        if (driver.status === 'Pending Review') {
-            badge.classList.add('pending');
-        } else if (driver.status === 'Docs Verified') {
-            badge.classList.add('verified');
-        } else if (driver.status === 'Approved') {
-            badge.classList.add('approved');
-        } else if (driver.status === 'Suspended') {
-            badge.classList.add('suspended');
-        }
-        
-        // Load remarks notes if saved
+        if (status === 'Pending') badge.classList.add('pending');
+        else if (status === 'Active') badge.classList.add('approved');
+        else if (status === 'Rejected') badge.classList.add('suspended');
+        else if (status === 'Suspended') badge.classList.add('suspended');
+    }
+
+    if (serverDriver) {
+        syncStatusBadge(serverDriver.status || 'Pending');
+
         const remarksKey = `remarks_${driverId}`;
         if (localStorage.getItem(remarksKey)) {
             document.getElementById('internal-remarks-text').value = localStorage.getItem(remarksKey);
         }
-        
-        // Sync shifts representation
+
         const shiftMorning = document.getElementById('shift-morning');
         const shiftAfternoon = document.getElementById('shift-afternoon');
-        
-        if (driver.shift === 'Morning') {
-            shiftMorning.classList.add('active');
-            shiftAfternoon.classList.remove('active');
-        } else if (driver.shift === 'Afternoon') {
-            shiftAfternoon.classList.add('active');
-            shiftMorning.classList.remove('active');
+        const shift = serverDriver.shift || '';
+        if (shiftMorning && shiftAfternoon) {
+            if (shift.toLowerCase().includes('morning')) {
+                shiftMorning.classList.add('active');
+                shiftAfternoon.classList.remove('active');
+            } else if (shift.toLowerCase().includes('evening') || shift.toLowerCase().includes('afternoon')) {
+                shiftAfternoon.classList.add('active');
+                shiftMorning.classList.remove('active');
+            }
         }
-        
-        // Sync working days representation
+
         const daysContainer = document.getElementById('days-container');
-        if (daysContainer && driver.working_days) {
-            let daysHtml = '';
-            const allDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-            
-            allDays.forEach((day, index) => {
-                // If it's a weekday and within the driver's working list
-                const isActive = (index < driver.working_days.length);
-                daysHtml += `<span class="day-badge ${isActive ? 'active' : 'inactive'}">${day}</span>`;
-            });
-            daysContainer.innerHTML = daysHtml;
+        if (daysContainer && Array.isArray(serverDriver.working_days)) {
+            const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+            const dayKeys = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            daysContainer.innerHTML = dayKeys.map((key, index) => {
+                const isActive = serverDriver.working_days.includes(key);
+                return `<span class="day-badge ${isActive ? 'active' : 'inactive'}">${labels[index]}</span>`;
+            }).join('');
         }
-        
-        // Sync service areas badge collection
+
         const coverageContainer = document.getElementById('coverage-container');
-        if (coverageContainer && driver.coverage_areas) {
-            let coverageHtml = '';
-            driver.coverage_areas.forEach(area => {
-                coverageHtml += `<span class="badge bg-light text-body border py-1 px-2" style="font-size: 0.75rem; font-weight: 600; border-radius: 4px;">${area}</span>`;
-            });
-            coverageContainer.innerHTML = coverageHtml;
+        const coverageAreas = serverDriver.service_areas || [];
+        if (coverageContainer && Array.isArray(coverageAreas) && coverageAreas.length) {
+            coverageContainer.innerHTML = coverageAreas.map((area) =>
+                `<span class="badge bg-light text-body border py-1 px-2" style="font-size: 0.75rem; font-weight: 600; border-radius: 4px;">${area}</span>`
+            ).join('');
         }
-        
-        // Sync assigned area dropdown
+
         const select = document.getElementById('assigned-area-select');
         if (select) {
+            const areaName = serverDriver.zone || serverDriver.store || '';
             for (let option of select.options) {
-                if (option.value === driver.serviceArea || option.text.includes(driver.serviceArea)) {
+                if (option.value === areaName || option.text.includes(areaName)) {
                     option.selected = true;
                     break;
                 }
@@ -1000,63 +1011,64 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Save remarks when typed
+    // Save remarks when typed (local note only for now)
     document.getElementById('internal-remarks-text').addEventListener('input', function(e) {
         if (driverId) {
             localStorage.setItem(`remarks_${driverId}`, e.target.value);
         }
     });
     
-    // Decision processors
-    window.processApplication = function(action) {
-        if (!driverId || allDrivers.length === 0) {
-            showToast("Driver data not initialized.", "danger");
+    // Decision processors — persist to database
+    window.processApplication = async function(action) {
+        if (!driverId) {
+            showToast('Driver data not initialized.', 'danger');
             return;
         }
-        
-        const currentDriver = allDrivers.find(d => d.id === driverId);
-        if (!currentDriver) return;
-        
-        if (action === 'approve') {
-            currentDriver.status = 'Approved';
-            currentDriver.subtext = '';
-            
-            // Sync status badge in header
-            const badge = document.getElementById('driver-status-badge');
-            badge.className = 'status-badge-custom d-inline-flex approved';
-            badge.querySelector('.status-text').innerText = 'Approved';
-            
-            // Save state
-            localStorage.setItem('allDrivers', JSON.stringify(allDrivers));
-            
-            showToast(`${currentDriver.name} approved successfully! Redirecting...`, 'success');
-            
-            setTimeout(() => {
-                window.location.href = "{{ route('fleet-approvals') }}";
-            }, 1200);
-            
-        } else if (action === 'reject') {
-            currentDriver.status = 'Suspended';
-            currentDriver.subtext = '';
-            
-            // Sync status badge in header
-            const badge = document.getElementById('driver-status-badge');
-            badge.className = 'status-badge-custom d-inline-flex suspended';
-            badge.querySelector('.status-text').innerText = 'Suspended';
-            
-            // Save state
-            localStorage.setItem('allDrivers', JSON.stringify(allDrivers));
-            
-            showToast(`${currentDriver.name} application rejected/suspended. Redirecting...`, 'danger');
-            
-            setTimeout(() => {
-                window.location.href = "{{ route('fleet-approvals') }}";
-            }, 1200);
-            
-        } else if (action === 'request') {
-            showToast("Document request has been sent to the driver's mobile app.", "warning");
+
+        if (action === 'request') {
+            showToast("Document request has been sent to the driver's mobile app.", 'warning');
+            return;
         }
-    }
+
+        const status = action === 'approve' ? 'Active' : 'Rejected';
+        const approveBtn = document.getElementById('btn-approve');
+        const rejectBtn = document.getElementById('btn-reject');
+        if (approveBtn) approveBtn.disabled = true;
+        if (rejectBtn) rejectBtn.disabled = true;
+
+        try {
+            const response = await fetch(statusUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ status }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.message || 'Unable to update application status.');
+            }
+
+            syncStatusBadge(status);
+            const name = serverDriver?.name || 'Driver';
+            if (action === 'approve') {
+                showToast(`${name} approved successfully! Redirecting...`, 'success');
+            } else {
+                showToast(`${name} application rejected/suspended. Redirecting...`, 'danger');
+            }
+
+            setTimeout(() => {
+                window.location.href = "{{ route('fleet-approvals') }}";
+            }, 1000);
+        } catch (error) {
+            showToast(error.message || 'Unable to update application status.', 'danger');
+            if (approveBtn) approveBtn.disabled = false;
+            if (rejectBtn) rejectBtn.disabled = false;
+        }
+    };
 });
 </script>
 @endsection

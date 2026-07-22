@@ -887,10 +887,10 @@
   resolved "https://registry.npmjs.org/@dual-bundle/import-meta-resolve/-/import-meta-resolve-4.2.1.tgz"
   integrity sha512-id+7YRUgoUX6CgV0DtuhirQWodeeA7Lf4i2x71JS/vtA5pRb/hIGWlw+G6MeXvsM+MXrz0VAydTGElX1rAfgPg==
 
-"@esbuild/win32-x64@0.25.10":
+"@esbuild/linux-x64@0.25.10":
   version "0.25.10"
-  resolved "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.25.10.tgz"
-  integrity sha512-9KpxSVFCu0iK1owoez6aC/s/EdUQLDN3adTxGCqxMVhrPDj6bt5dbrHDXUuq+Bs2vATFBBrQS5vdQ/Ed2P+nbw==
+  resolved "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.25.10.tgz"
+  integrity sha512-QSX81KhFoZGwenVyPoberggdW1nrQZSvfVDAIUXr3WqLRZGZqWk/P4T8p2SP+de2Sr5HPcvjhcJzEiulKgnxtA==
 
 "@eslint-community/eslint-utils@^4.2.0":
   version "4.9.0"
@@ -1108,15 +1108,15 @@
   resolved "https://registry.npmjs.org/@rollup/plugin-html/-/plugin-html-1.1.0.tgz"
   integrity sha512-MTJDgMp83fB0kFRU95wAUqboUTcl1O1oXg7KLZNjNXfgPKTV0crek1k2vBUgM6Nmuvl/koqea7OrnUzzQdWT7w==
 
-"@rollup/rollup-win32-x64-gnu@4.62.2":
+"@rollup/rollup-linux-x64-gnu@4.62.2":
   version "4.62.2"
-  resolved "https://registry.npmjs.org/@rollup/rollup-win32-x64-gnu/-/rollup-win32-x64-gnu-4.62.2.tgz"
-  integrity sha512-T6xr6ucWSFto+VGajA8YH26LdpHRuP4YLHEKAtCWvJDOlnmWcDZVCI2Jmjr+IFHDlt2zRaTAKE4tfjTaWLgJBg==
+  resolved "https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.62.2.tgz"
+  integrity sha512-5BqxR/pshjey51iliyzTD5Xi3EN0aLmQ2lZ3lvefVV9c82BvrLo2/6OT55iifpWBufs6kdwWbuOKS841DrmK9A==
 
-"@rollup/rollup-win32-x64-msvc@4.62.2":
+"@rollup/rollup-linux-x64-musl@4.62.2":
   version "4.62.2"
-  resolved "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.62.2.tgz"
-  integrity sha512-BfzEnDJOt9T8M989/lA37EcJgat01wLRnoi5dQf3QzOH7jzpqTAzdDbVfRljVr5r+jzKqpbHeyOfAaXxAd0PAA==
+  resolved "https://registry.npmjs.org/@rollup/rollup-linux-x64-musl/-/rollup-linux-x64-musl-4.62.2.tgz"
+  integrity sha512-uNN83XxQrRAh/w0/pmAfibcwyb6YWt4gP+dpnQKPVJshAloQ785ii8CT8ZCIxkGg9opVsvAlGhFitSm6D1Jjpg==
 
 "@rtsao/scc@^1.1.0":
   version "1.1.0"
@@ -1696,9 +1696,9 @@ bootstrap@~5.3.3:
   integrity sha512-8HLCdWgyoMguSO9o+aH+iuZ+aht+mzW0u3HIMzVu7Srrpv7EBBxTnrFlSCskwdY1+EOFQSm7uMJhNQHkdPcmjg==
 
 brace-expansion@^1.1.7:
-  version "1.1.11"
-  resolved "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.11.tgz"
-  integrity sha512-iCuPHDFgrHX7H2vEI/5xpz07zSHB00TpugqhmYtVmMO6518mCuRMoOYFldEBl0g187ufozdaHgWKcYFb61qGiA==
+  version "1.1.16"
+  resolved "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.16.tgz"
+  integrity sha512-IDw48K2/2kRkg9LdJxurvq3lV3aBgq0REY89duEqFRthjlPdXHKMj7EnQOXVckxzgisinf3nHfrcE2FufFLXMw==
   dependencies:
     balanced-match "^1.0.0"
     concat-map "0.0.1"

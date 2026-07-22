@@ -83,23 +83,47 @@ class OperationsDataService
             'slot_window' => '14:00–18:00',
         ];
 
+        $storesByCode = Store::pluck('id', 'code');
+        $ordersPerBatch = max(1, (int) ($settings['orders_per_batch'] ?? 5));
+
+        $pendingByStore = Order::query()
+            ->whereNull('views')
+            ->whereNotNull('zone_key')
+            ->where('delivery', 'waiting')
+            ->selectRaw('store_id, COUNT(*) as total')
+            ->groupBy('store_id')
+            ->pluck('total', 'store_id');
+
+        $driverCountsByStore = Driver::storeDrivers()
+            ->whereHas('activeAssignment')
+            ->with('activeAssignment')
+            ->get()
+            ->groupBy(fn (Driver $d) => $d->activeAssignment?->store_id)
+            ->map->count();
+
         $stores = BatchHub::query()
             ->orderBy('id')
             ->get()
-            ->map(fn (BatchHub $hub) => [
-                'id' => $hub->code,
-                'name' => $hub->name,
-                'zone' => $hub->zone,
-                'branch' => $hub->branch,
-                'pending' => (int) $hub->pending,
-                'drivers' => (int) $hub->drivers_count,
-                'est_batches' => (int) $hub->est_batches,
-                'status' => $hub->status,
-                'slot' => $hub->slot,
-                'color' => $hub->color,
-                'lat' => $hub->lat,
-                'lng' => $hub->lng,
-            ])
+            ->map(function (BatchHub $hub) use ($storesByCode, $pendingByStore, $driverCountsByStore, $ordersPerBatch) {
+                $storeId = $storesByCode[$hub->code] ?? null;
+                $pending = $storeId ? (int) ($pendingByStore[$storeId] ?? 0) : (int) $hub->pending;
+                $drivers = $storeId ? (int) ($driverCountsByStore[$storeId] ?? 0) : (int) $hub->drivers_count;
+
+                return [
+                    'id' => $hub->code,
+                    'name' => $hub->name,
+                    'zone' => $hub->zone,
+                    'branch' => $hub->branch,
+                    'pending' => $pending,
+                    'drivers' => $drivers,
+                    'est_batches' => (int) ceil($pending / $ordersPerBatch),
+                    'status' => $hub->status,
+                    'slot' => $hub->slot,
+                    'color' => $hub->color,
+                    'lat' => $hub->lat,
+                    'lng' => $hub->lng,
+                ];
+            })
             ->values()
             ->all();
 
@@ -138,7 +162,7 @@ class OperationsDataService
             'stores' => $stores,
             'pending_orders' => $pendingOrders,
             'batches' => $batches,
-            'drivers' => [],
+            'drivers' => $this->batchDrivers(),
         ];
     }
 
@@ -417,7 +441,7 @@ class OperationsDataService
     /**
      * @return array<string, mixed>
      */
-    protected function shapeBatch(DeliveryBatch $batch): array
+    public function shapeBatch(DeliveryBatch $batch): array
     {
         $shaped = [
             'id' => $batch->code,
@@ -461,6 +485,60 @@ class OperationsDataService
         ];
 
         return $shaped;
+    }
+
+    /**
+     * Drivers available for batch generation / assignment UI.
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function batchDrivers(): array
+    {
+        $assignedLoads = DeliveryBatch::query()
+            ->whereIn('status', ['pending', 'accepted', 'assigned', 'in_transit'])
+            ->whereNotNull('driver_code')
+            ->selectRaw('driver_code, COUNT(*) as total')
+            ->groupBy('driver_code')
+            ->pluck('total', 'driver_code');
+
+        $hubCoords = BatchHub::query()->get()->keyBy('code');
+
+        // Delivery batches are store-driver only (no zone/individual drivers).
+        return Driver::storeDrivers()
+            ->with(['user', 'activeAssignment.store', 'latestLocation'])
+            ->whereHas('user')
+            ->get()
+            ->map(function (Driver $driver) use ($assignedLoads, $hubCoords) {
+                $user = $driver->user;
+                $store = $driver->activeAssignment?->store;
+                $location = $driver->latestLocation;
+                $hub = $store ? ($hubCoords[$store->code] ?? null) : null;
+
+                $lat = $location?->lat ?? $hub?->lat;
+                $lng = $location?->lng ?? $hub?->lng;
+                $avatar = $user->image ? basename((string) $user->image) : '1.png';
+                $available = strtolower((string) $driver->availability) === 'online'
+                    && strtolower((string) ($user->status ?? 'Active')) === 'active';
+
+                return [
+                    'id' => $user->code,
+                    'name' => $user->name,
+                    'type' => 'store',
+                    'zones' => [],
+                    'store' => $store?->name,
+                    'store_id' => $store?->code,
+                    'vehicle' => $driver->plate_number ?? ($driver->vehicle_type ?? 'Vehicle'),
+                    'status' => $available ? 'available' : 'offline',
+                    'load' => (int) ($assignedLoads[$user->code] ?? 0),
+                    'distance' => '—',
+                    'eta' => '—',
+                    'avatar' => $avatar,
+                    'lat' => $lat !== null ? (float) $lat : null,
+                    'lng' => $lng !== null ? (float) $lng : null,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

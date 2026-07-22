@@ -8,6 +8,7 @@ use App\Http\Controllers\dashboard\DashboardController;
 use App\Http\Controllers\pages\LiveMapController;
 use App\Http\Controllers\Fleet\StoreDriverController;
 use App\Http\Controllers\Fleet\ZoneDriverController;
+use App\Http\Controllers\Fleet\ApprovalsController;
 use App\Http\Controllers\Fleet\DriverPageController;
 use App\Http\Controllers\Operations\BatchController;
 use App\Http\Controllers\Operations\EarningsController;
@@ -56,43 +57,53 @@ Route::middleware(['auth', 'role:user'])->group(function () {
 Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/live-map', [LiveMapController::class, 'index'])->name('live-map');
 
-    Route::get('/fleet/drivers/store', [StoreDriverController::class, 'index'])->name('fleet-drivers-store');
-    Route::get('/fleet/drivers/store/list', [StoreDriverController::class, 'list'])->name('fleet-drivers-store.list');
-    Route::post('/fleet/drivers/store', [StoreDriverController::class, 'store'])->name('fleet-drivers-store.store');
-    Route::post('/fleet/drivers/store/{code}/update', [StoreDriverController::class, 'update'])->name('fleet-drivers-store.update');
-    Route::delete('/fleet/drivers/store/{code}', [StoreDriverController::class, 'destroy'])->name('fleet-drivers-store.destroy');
-    Route::post('/fleet/drivers/store/{code}/status', [StoreDriverController::class, 'updateStatus'])->name('fleet-drivers-store.status');
+    Route::prefix('fleet')->group(function () {
+        Route::get('/drivers/store', [StoreDriverController::class, 'index'])->name('fleet-drivers-store');
+        Route::get('/drivers/store/list', [StoreDriverController::class, 'list'])->name('fleet-drivers-store.list');
+        Route::post('/drivers/store', [StoreDriverController::class, 'store'])->name('fleet-drivers-store.store');
+        Route::post('/drivers/store/{code}/update', [StoreDriverController::class, 'update'])->name('fleet-drivers-store.update');
+        Route::delete('/drivers/store/{code}', [StoreDriverController::class, 'destroy'])->name('fleet-drivers-store.destroy');
+        Route::post('/drivers/store/{code}/status', [StoreDriverController::class, 'updateStatus'])->name('fleet-drivers-store.status');
 
-    Route::get('/fleet/drivers/zone', [ZoneDriverController::class, 'index'])->name('fleet-drivers-zone');
-    Route::get('/fleet/drivers/zone/list', [ZoneDriverController::class, 'list'])->name('fleet-drivers-zone.list');
-    Route::post('/fleet/drivers/zone', [ZoneDriverController::class, 'store'])->name('fleet-drivers-zone.store');
-    Route::post('/fleet/drivers/zone/{code}/update', [ZoneDriverController::class, 'update'])->name('fleet-drivers-zone.update');
-    Route::delete('/fleet/drivers/zone/{code}', [ZoneDriverController::class, 'destroy'])->name('fleet-drivers-zone.destroy');
-    Route::post('/fleet/drivers/zone/{code}/status', [ZoneDriverController::class, 'updateStatus'])->name('fleet-drivers-zone.status');
+        Route::get('/drivers/zone', [ZoneDriverController::class, 'index'])->name('fleet-drivers-zone');
+        Route::get('/drivers/zone/list', [ZoneDriverController::class, 'list'])->name('fleet-drivers-zone.list');
+        Route::post('/drivers/zone', [ZoneDriverController::class, 'store'])->name('fleet-drivers-zone.store');
+        Route::post('/drivers/zone/{code}/update', [ZoneDriverController::class, 'update'])->name('fleet-drivers-zone.update');
+        Route::delete('/drivers/zone/{code}', [ZoneDriverController::class, 'destroy'])->name('fleet-drivers-zone.destroy');
+        Route::post('/drivers/zone/{code}/status', [ZoneDriverController::class, 'updateStatus'])->name('fleet-drivers-zone.status');
 
-    Route::get('/fleet/drivers/{id}/profile', [DriverPageController::class, 'profile'])->name('fleet-drivers-profile');
+        Route::get('/drivers/{id}/profile', [DriverPageController::class, 'profile'])->name('fleet-drivers-profile');
+        Route::post('/drivers/{id}/profile', [DriverPageController::class, 'updateProfile'])->name('fleet-drivers-profile.update');
+        Route::post('/drivers/{id}/status', [DriverPageController::class, 'updateStatus'])->name('fleet-drivers-profile.status');
 
-    Route::get('/fleet/drivers', function () {
-        return redirect()->route('fleet-drivers-store');
-    })->name('fleet-drivers');
+        Route::get('/drivers', function () {
+            return redirect()->route('fleet-drivers-store');
+        })->name('fleet-drivers');
 
-    Route::get('/fleet/approvals', function () {
-        return view('content.pages.approvals');
-    })->name('fleet-approvals');
+        Route::get('/approvals', [ApprovalsController::class, 'index'])->name('fleet-approvals');
+        Route::get('/approvals/list', [ApprovalsController::class, 'list'])->name('fleet-approvals.list');
+        Route::post('/approvals/bulk-status', [ApprovalsController::class, 'bulkUpdateStatus'])->name('fleet-approvals.bulk-status');
+        Route::post('/approvals/{code}/status', [ApprovalsController::class, 'updateStatus'])->name('fleet-approvals.status');
 
-    Route::get('/fleet/approvals/{id}/review', [DriverPageController::class, 'review'])->name('fleet-approvals-review');
+        Route::get('/approvals/{id}/review', [DriverPageController::class, 'review'])->name('fleet-approvals-review');
+    });
 
-    Route::get('/operations/orders', [OrderController::class, 'index'])->name('operations-orders');
-    Route::get('/operations/orders/{id}/completed', [OrderController::class, 'completed'])->name('operations-orders-completed');
-    Route::get('/operations/orders/{id}', [OrderController::class, 'show'])->name('operations-orders-detail');
+    Route::prefix('operations')->group(function () {
+        Route::get('/orders', [OrderController::class, 'index'])->name('operations-orders');
+        Route::get('/orders/{id}/completed', [OrderController::class, 'completed'])->name('operations-orders-completed');
+        Route::get('/orders/{id}', [OrderController::class, 'show'])->name('operations-orders-detail');
 
-    Route::get('/operations/delivery-batches', [BatchController::class, 'index'])->name('operations-orders-batches');
-    Route::get('/operations/delivery-batches/generate', [BatchController::class, 'generate'])->name('operations-orders-batches-generate');
-    Route::get('/operations/delivery-batches/settings', [BatchController::class, 'settings'])->name('operations-orders-batches-settings');
+        Route::get('/delivery-batches', [BatchController::class, 'index'])->name('operations-orders-batches');
+        Route::get('/delivery-batches/generate', [BatchController::class, 'generate'])->name('operations-orders-batches-generate');
+        Route::get('/delivery-batches/settings', [BatchController::class, 'settings'])->name('operations-orders-batches-settings');
+        Route::post('/delivery-batches', [BatchController::class, 'store'])->name('operations-orders-batches.store');
+        Route::post('/delivery-batches/settings', [BatchController::class, 'saveSettings'])->name('operations-orders-batches.settings.save');
+        Route::post('/delivery-batches/{code}/assign', [BatchController::class, 'assign'])->name('operations-orders-batches.assign');
 
-    Route::get('/operations/earnings', [EarningsController::class, 'index'])->name('operations-earnings');
-    Route::get('/operations/payouts', [PayoutController::class, 'index'])->name('operations-payouts');
-    Route::get('/operations/payouts/drivers/{id}', [PayoutController::class, 'driver'])->name('operations-payouts-driver-detail');
+        Route::get('/earnings', [EarningsController::class, 'index'])->name('operations-earnings');
+        Route::get('/payouts', [PayoutController::class, 'index'])->name('operations-payouts');
+        Route::get('/payouts/drivers/{id}', [PayoutController::class, 'driver'])->name('operations-payouts-driver-detail');
+    });
 
     Route::get('/system/analytics', function () {
         return view('content.pages.analytics');
