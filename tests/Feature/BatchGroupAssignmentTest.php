@@ -253,6 +253,146 @@ class BatchGroupAssignmentTest extends TestCase
         }
     }
 
+    public function test_delete_child_batch_returns_orders_to_pending_and_frees_driver(): void
+    {
+        $store = $this->makeStore('STR-DEL');
+        $driverA = $this->makeStoreDriver($store, 'DRV-DELA');
+        $driverB = $this->makeStoreDriver($store, 'DRV-DELB');
+
+        Order::withoutEvents(fn () => collect([
+            $this->makeOrder($store, 'ORD-DEL1', 8.5010, 76.9510),
+            $this->makeOrder($store, 'ORD-DEL2', 8.5012, 76.9512),
+            $this->makeOrder($store, 'ORD-DEL3', 8.5250, 76.9500),
+        ]));
+
+        $created = app(BatchService::class)->storeGeneratedBatches([
+            'store_id' => $store->code,
+            'batches' => [
+                [
+                    'id' => 'BT-DEL-A',
+                    'driver_code' => $driverA->user->code,
+                    'orders' => [
+                        ['id' => 'ORD-DEL1', 'stop' => 1, 'customer' => 'A'],
+                        ['id' => 'ORD-DEL2', 'stop' => 2, 'customer' => 'B'],
+                    ],
+                    'hub' => ['lat' => $store->lat, 'lng' => $store->lng, 'name' => $store->name],
+                ],
+                [
+                    'id' => 'BT-DEL-B',
+                    'driver_code' => $driverB->user->code,
+                    'orders' => [
+                        ['id' => 'ORD-DEL3', 'stop' => 1, 'customer' => 'C'],
+                    ],
+                    'hub' => ['lat' => $store->lat, 'lng' => $store->lng, 'name' => $store->name],
+                ],
+            ],
+        ]);
+
+        $groupCode = $created['group']['id'];
+
+        $result = app(BatchService::class)->deleteBatch('BT-DEL-A');
+        $this->assertFalse($result['group_deleted']);
+        $this->assertSame($groupCode, $result['group_id']);
+        $this->assertNull(DeliveryBatch::where('code', 'BT-DEL-A')->first());
+        $this->assertNotNull(DeliveryBatch::where('code', 'BT-DEL-B')->first());
+        $this->assertNotNull(DeliveryBatchGroup::where('code', $groupCode)->first());
+
+        $this->assertSame(Order::STATUS_PENDING, Order::where('code', 'ORD-DEL1')->value('status'));
+        $this->assertNull(Order::where('code', 'ORD-DEL1')->value('delivery_batch_id'));
+        $this->assertNull(Order::where('code', 'ORD-DEL1')->value('driver_id'));
+        $this->assertNull($driverA->fresh()->current_batch_id);
+
+        // Last child deletes the parent group.
+        $last = app(BatchService::class)->deleteBatch('BT-DEL-B');
+        $this->assertTrue($last['group_deleted']);
+        $this->assertNull(DeliveryBatchGroup::where('code', $groupCode)->first());
+        $this->assertSame(Order::STATUS_PENDING, Order::where('code', 'ORD-DEL3')->value('status'));
+        $this->assertNull($driverB->fresh()->current_batch_id);
+    }
+
+    public function test_delete_batch_group_removes_all_children(): void
+    {
+        $store = $this->makeStore('STR-DG');
+        $driverA = $this->makeStoreDriver($store, 'DRV-DGA');
+        $driverB = $this->makeStoreDriver($store, 'DRV-DGB');
+
+        Order::withoutEvents(fn () => collect([
+            $this->makeOrder($store, 'ORD-DG1', 8.5010, 76.9510),
+            $this->makeOrder($store, 'ORD-DG2', 8.5250, 76.9500),
+        ]));
+
+        $created = app(BatchService::class)->storeGeneratedBatches([
+            'store_id' => $store->code,
+            'batches' => [
+                [
+                    'id' => 'BT-DG-A',
+                    'driver_code' => $driverA->user->code,
+                    'orders' => [
+                        ['id' => 'ORD-DG1', 'stop' => 1, 'customer' => 'A'],
+                    ],
+                    'hub' => ['lat' => $store->lat, 'lng' => $store->lng, 'name' => $store->name],
+                ],
+                [
+                    'id' => 'BT-DG-B',
+                    'driver_code' => $driverB->user->code,
+                    'orders' => [
+                        ['id' => 'ORD-DG2', 'stop' => 1, 'customer' => 'B'],
+                    ],
+                    'hub' => ['lat' => $store->lat, 'lng' => $store->lng, 'name' => $store->name],
+                ],
+            ],
+        ]);
+
+        $groupCode = $created['group']['id'];
+        $result = app(BatchService::class)->deleteBatchGroup($groupCode);
+
+        $this->assertSame(2, $result['batches_deleted']);
+        $this->assertNull(DeliveryBatchGroup::where('code', $groupCode)->first());
+        $this->assertSame(0, DeliveryBatch::whereIn('code', ['BT-DG-A', 'BT-DG-B'])->count());
+        $this->assertSame(Order::STATUS_PENDING, Order::where('code', 'ORD-DG1')->value('status'));
+        $this->assertSame(Order::STATUS_PENDING, Order::where('code', 'ORD-DG2')->value('status'));
+        $this->assertNull($driverA->fresh()->current_batch_id);
+        $this->assertNull($driverB->fresh()->current_batch_id);
+    }
+
+    public function test_cannot_delete_batch_after_delivery_started(): void
+    {
+        $store = $this->makeStore('STR-DL');
+        $driver = $this->makeStoreDriver($store, 'DRV-DL');
+
+        Order::withoutEvents(fn () => $this->makeOrder($store, 'ORD-DL1', 8.5010, 76.9510));
+
+        $created = app(BatchService::class)->storeGeneratedBatches([
+            'store_id' => $store->code,
+            'batches' => [
+                [
+                    'id' => 'BT-DL-A',
+                    'driver_code' => $driver->user->code,
+                    'orders' => [
+                        ['id' => 'ORD-DL1', 'stop' => 1, 'customer' => 'A'],
+                    ],
+                    'hub' => ['lat' => $store->lat, 'lng' => $store->lng, 'name' => $store->name],
+                ],
+            ],
+        ]);
+
+        DeliveryBatch::where('code', 'BT-DL-A')->update(['status' => DeliveryBatch::STATUS_IN_PROGRESS]);
+
+        try {
+            app(BatchService::class)->deleteBatch('BT-DL-A');
+            $this->fail('Expected delete of in_progress batch to fail.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('batch', $e->errors());
+        }
+
+        try {
+            app(BatchService::class)->deleteBatchGroup($created['group']['id']);
+            $this->fail('Expected delete of group with in_progress child to fail.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('group', $e->errors());
+        }
+    }
+
     private function makeStore(string $code): Store
     {
         return Store::create([

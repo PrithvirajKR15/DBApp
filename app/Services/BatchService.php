@@ -120,6 +120,14 @@ class BatchService
                 $user = $driver->user;
                 $avatar = $user->image ? basename((string) $user->image) : '1.png';
                 $hub = $batch['hub'] ?? null;
+                if (! is_array($hub) || ($hub['lat'] ?? null) === null || ($hub['lng'] ?? null) === null) {
+                    $hub = [
+                        'lat' => $store->lat,
+                        'lng' => $store->lng,
+                        'name' => $payload['store_name'] ?? $store->name,
+                    ];
+                }
+
                 $route = $batch['route'] ?? [];
                 $orders = $batch['orders'] ?? [];
 
@@ -140,8 +148,8 @@ class BatchService
                         'driver_code' => $user->code,
                         'driver_name' => $user->name,
                         'driver_avatar' => $avatar,
-                        'hub_lat' => $hub['lat'] ?? null,
-                        'hub_lng' => $hub['lng'] ?? null,
+                        'hub_lat' => $hub['lat'] ?? $store->lat,
+                        'hub_lng' => $hub['lng'] ?? $store->lng,
                         'hub_name' => $hub['name'] ?? ($payload['store_name'] ?? $store->name),
                         'route_hub_to_first' => $route['hub_to_first'] ?? null,
                         'route_return' => $route['return'] ?? null,
@@ -150,6 +158,7 @@ class BatchService
 
                 $model->batchStops()->delete();
                 $orderCodesForBatch = [];
+                $createdStops = 0;
 
                 foreach ($orders as $stop) {
                     $orderCode = (string) ($stop['id'] ?? '');
@@ -159,28 +168,50 @@ class BatchService
 
                     $orderModel = Order::where('code', $orderCode)->first();
 
+                    // Broadcast / already-taken orders can never enter a store batch.
                     if ($orderModel && ! $orderModel->canBeBatched()) {
                         continue;
                     }
+
+                    // Only pending (or not-yet-assigned) orders should be pulled in.
+                    if ($orderModel && $orderModel->status !== Order::STATUS_PENDING && $orderModel->delivery_batch_id) {
+                        continue;
+                    }
+
+                    $lat = $stop['lat'] ?? $orderModel?->lat;
+                    $lng = $stop['lng'] ?? $orderModel?->lng;
 
                     DeliveryBatchStop::create([
                         'delivery_batch_id' => $model->id,
                         'order_id' => $orderModel?->id,
                         'stop' => (int) ($stop['stop'] ?? 0),
                         'order_code' => $orderCode,
-                        'customer' => $stop['customer'] ?? 'Customer',
-                        'address' => $stop['address'] ?? null,
-                        'locality' => $stop['locality'] ?? null,
-                        'lat' => $stop['lat'] ?? null,
-                        'lng' => $stop['lng'] ?? null,
-                        'value' => (float) ($stop['value'] ?? 0),
-                        'payment' => $stop['payment'] ?? null,
-                        'prep' => $stop['prep'] ?? null,
+                        'customer' => $stop['customer'] ?? $orderModel?->customer ?? 'Customer',
+                        'address' => $stop['address'] ?? $orderModel?->address,
+                        'locality' => $stop['locality'] ?? $orderModel?->locality,
+                        'lat' => $lat !== null ? (float) $lat : null,
+                        'lng' => $lng !== null ? (float) $lng : null,
+                        'value' => (float) ($stop['value'] ?? $orderModel?->value ?? 0),
+                        'payment' => $stop['payment'] ?? $orderModel?->payment,
+                        'prep' => $stop['prep'] ?? $orderModel?->prep,
                         'delivery' => 'Assigned',
                     ]);
 
+                    $createdStops++;
                     $orderCodesForBatch[] = $orderCode;
                 }
+
+                if ($createdStops === 0) {
+                    throw ValidationException::withMessages([
+                        'batches' => "Batch {$code} has no mappable orders left to assign. Refresh pending orders and generate again.",
+                    ]);
+                }
+
+                $this->renumberStops($model->id);
+                $model->update([
+                    'stops' => $createdStops,
+                    'value' => round((float) $model->batchStops()->sum('value'), 2),
+                ]);
 
                 $driver->update(['current_batch_id' => $model->id]);
 
@@ -433,6 +464,148 @@ class BatchService
     }
 
     /**
+     * Delete one child batch before delivery starts. Orders return to pending
+     * and the driver is freed. Removes the parent group if it becomes empty.
+     *
+     * @return array{deleted: string, group_deleted: bool, group_id: ?string}
+     */
+    public function deleteBatch(string $batchCode): array
+    {
+        return DB::transaction(function () use ($batchCode) {
+            $batch = DeliveryBatch::with(['batchStops', 'store', 'driver', 'group'])
+                ->where('code', $batchCode)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $batch) {
+                throw ValidationException::withMessages(['batch' => 'Batch not found.']);
+            }
+
+            if (! $batch->isEditable()) {
+                throw ValidationException::withMessages([
+                    'batch' => 'This batch cannot be deleted — delivery has already started.',
+                ]);
+            }
+
+            $group = $batch->group;
+            $store = $batch->store;
+            $groupCode = $group?->code;
+
+            $this->releaseBatchResources($batch);
+            $batch->batchStops()->delete();
+            $batch->delete();
+
+            $groupDeleted = false;
+            if ($group) {
+                $remaining = $group->batches()->count();
+                if ($remaining === 0) {
+                    $group->delete();
+                    $groupDeleted = true;
+                } else {
+                    $group->update([
+                        'batch_count' => $remaining,
+                        'order_count' => (int) $group->batches()->sum('stops'),
+                    ]);
+                    $group->refreshStatusFromChildren();
+                }
+            }
+
+            if ($store) {
+                $this->refreshHubStats($store->code, $store->id);
+            }
+
+            return [
+                'deleted' => $batchCode,
+                'group_deleted' => $groupDeleted,
+                'group_id' => $groupDeleted ? null : $groupCode,
+            ];
+        });
+    }
+
+    /**
+     * Delete an entire parent batch group (all child routes) before any child
+     * has started delivery. Orders return to pending; drivers are freed.
+     *
+     * @return array{deleted: string, batches_deleted: int}
+     */
+    public function deleteBatchGroup(string $groupCode): array
+    {
+        return DB::transaction(function () use ($groupCode) {
+            $group = DeliveryBatchGroup::with(['batches.batchStops', 'batches.driver', 'store'])
+                ->where('code', $groupCode)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $group) {
+                throw ValidationException::withMessages(['group' => 'Batch group not found.']);
+            }
+
+            $locked = $group->batches->first(fn (DeliveryBatch $b) => ! $b->isEditable());
+            if ($locked) {
+                throw ValidationException::withMessages([
+                    'group' => 'Cannot delete this group — at least one child batch has started delivery.',
+                ]);
+            }
+
+            $store = $group->store;
+            $count = $group->batches->count();
+
+            foreach ($group->batches as $batch) {
+                $this->releaseBatchResources($batch);
+                $batch->batchStops()->delete();
+                $batch->delete();
+            }
+
+            $group->delete();
+
+            if ($store) {
+                $this->refreshHubStats($store->code, $store->id);
+            }
+
+            return [
+                'deleted' => $groupCode,
+                'batches_deleted' => $count,
+            ];
+        });
+    }
+
+    /**
+     * Free the driver and return orders to the pending pool.
+     */
+    protected function releaseBatchResources(DeliveryBatch $batch): void
+    {
+        if ($batch->driver_id) {
+            Driver::where('id', $batch->driver_id)
+                ->where('current_batch_id', $batch->id)
+                ->update(['current_batch_id' => null]);
+        }
+
+        $orderCodes = $batch->batchStops->pluck('order_code')->filter()->all();
+        if ($orderCodes === []) {
+            // Also clear any orders that point at this batch without stop rows.
+            Order::where('delivery_batch_id', $batch->id)->update([
+                'delivery_batch_id' => null,
+                'driver_id' => null,
+                'assignment_type' => null,
+                'status' => Order::STATUS_PENDING,
+                'delivery' => 'waiting',
+                'views' => null,
+            ]);
+
+            return;
+        }
+
+        Order::whereIn('code', $orderCodes)->update([
+            'delivery_batch_id' => null,
+            'driver_id' => null,
+            'assignment_type' => null,
+            'status' => Order::STATUS_PENDING,
+            'delivery' => 'waiting',
+            'views' => null,
+        ]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function completeBatch(string $batchCode): array
@@ -567,14 +740,13 @@ class BatchService
         }
 
         $pending = (int) Order::where('store_id', $storeId)
+            ->where('status', Order::STATUS_PENDING)
             ->where(function ($q) {
-                $q->where('status', Order::STATUS_PENDING)
-                    ->orWhere(function ($q2) {
-                        $q2->whereNull('views')
-                            ->whereNotNull('zone_key')
-                            ->where('delivery', 'waiting');
-                    });
+                $q->whereNull('assignment_type')
+                    ->orWhere('assignment_type', Order::ASSIGNMENT_STORE_BATCH);
             })
+            ->whereNotNull('lat')
+            ->whereNotNull('lng')
             ->whereNull('delivery_batch_id')
             ->count();
 

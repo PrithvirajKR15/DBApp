@@ -88,9 +88,13 @@ class OperationsDataService
         $ordersPerBatch = max(1, (int) ($settings['orders_per_batch'] ?? 5));
 
         $pendingByStore = Order::query()
-            ->whereNull('views')
-            ->whereNotNull('zone_key')
-            ->where('delivery', 'waiting')
+            ->where('status', Order::STATUS_PENDING)
+            ->where(function ($q) {
+                $q->whereNull('assignment_type')
+                    ->orWhere('assignment_type', Order::ASSIGNMENT_STORE_BATCH);
+            })
+            ->whereNotNull('lat')
+            ->whereNotNull('lng')
             ->selectRaw('store_id, COUNT(*) as total')
             ->groupBy('store_id')
             ->pluck('total', 'store_id');
@@ -144,9 +148,13 @@ class OperationsDataService
             ->all();
 
         $pendingOrders = Order::with('store')
-            ->whereNull('views')
-            ->whereNotNull('zone_key')
-            ->where('delivery', 'waiting')
+            ->where('status', Order::STATUS_PENDING)
+            ->where(function ($q) {
+                $q->whereNull('assignment_type')
+                    ->orWhere('assignment_type', Order::ASSIGNMENT_STORE_BATCH);
+            })
+            ->whereNotNull('lat')
+            ->whereNotNull('lng')
             ->orderBy('id')
             ->get()
             ->map(fn (Order $order) => [
@@ -157,8 +165,8 @@ class OperationsDataService
                 'locality' => $order->locality,
                 'area' => $order->area,
                 'zone_key' => $order->zone_key,
-                'lat' => $order->lat,
-                'lng' => $order->lng,
+                'lat' => $order->lat !== null ? (float) $order->lat : null,
+                'lng' => $order->lng !== null ? (float) $order->lng : null,
                 'value' => (float) $order->value,
                 'payment' => $order->payment,
                 'prep' => $order->prep,
@@ -511,6 +519,7 @@ class OperationsDataService
             'overflow_count' => (int) $group->overflow_count,
             'slot_window' => $group->slot_window,
             'created_at' => optional($group->created_at)->toDateTimeString(),
+            'deletable' => $batches->every(fn (DeliveryBatch $batch) => $batch->isEditable()),
             'batches' => $batches->map(function (DeliveryBatch $batch) use ($group) {
                 $shaped = $this->shapeBatch($batch);
                 $shaped['group_id'] = $group->code;

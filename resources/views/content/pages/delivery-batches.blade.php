@@ -5,18 +5,42 @@ $storesWithGroups = $data['stores_with_groups'] ?? [];
 $stores = $data['stores'] ?? [];
 $batchDrivers = $data['drivers'] ?? [];
 $batches = $data['batches'] ?? [];
-$pendingCount = count(array_filter($batches, fn ($b) => $b['status'] === 'pending'));
-$assignedCount = count(array_filter($batches, fn ($b) => $b['status'] === 'assigned'));
+$readyCount = count(array_filter($batches, fn ($b) => in_array($b['status'], ['assigned', 'pending'], true)));
 $inProgressCount = count(array_filter($batches, fn ($b) => $b['status'] === 'in_progress'));
 $completedCount = count(array_filter($batches, fn ($b) => $b['status'] === 'completed'));
 $cancelledCount = count(array_filter($batches, fn ($b) => $b['status'] === 'cancelled'));
+$currentCount = $readyCount + $inProgressCount;
+$filterStores = collect($stores)
+    ->map(fn ($s) => ['id' => $s['id'] ?? '', 'name' => $s['name'] ?? ($s['id'] ?? '')])
+    ->filter(fn ($s) => ($s['id'] ?? '') !== '')
+    ->keyBy('id');
+foreach ($storesWithGroups as $block) {
+    $sid = $block['id'] ?? '';
+    if ($sid !== '' && ! $filterStores->has($sid)) {
+        $filterStores->put($sid, ['id' => $sid, 'name' => $block['name'] ?? $sid]);
+    }
+}
+$filterStores = $filterStores->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+$activeStoreFilter = (string) request('store', '');
+$allowedStatusFilters = ['current', 'ready', 'in_progress', 'completed', 'cancelled', 'all'];
+$activeStatusFilter = (string) request('status', 'current');
+// Legacy query values from older filter labels.
+if ($activeStatusFilter === 'active') {
+    $activeStatusFilter = 'current';
+}
+if ($activeStatusFilter === 'assigned') {
+    $activeStatusFilter = 'ready';
+}
+if (! in_array($activeStatusFilter, $allowedStatusFilters, true)) {
+    $activeStatusFilter = 'current';
+}
 $statusMeta = [
-    'pending' => ['label' => 'Waiting', 'class' => 'chip-waiting'],
-    'assigned' => ['label' => 'Assigned', 'class' => 'chip-assigned'],
+    'pending' => ['label' => 'Ready', 'class' => 'chip-assigned'],
+    'assigned' => ['label' => 'Ready', 'class' => 'chip-assigned'],
     'in_progress' => ['label' => 'In Progress', 'class' => 'chip-out'],
     'completed' => ['label' => 'Completed', 'class' => 'chip-completed'],
     'cancelled' => ['label' => 'Cancelled', 'class' => 'chip-waiting'],
-    'open' => ['label' => 'Open', 'class' => 'chip-assigned'],
+    'open' => ['label' => 'Current', 'class' => 'chip-assigned'],
 ];
 $deliveryChipClass = [
     'Waiting' => 'chip-waiting',
@@ -117,7 +141,7 @@ $deliveryChipClass = [
 <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
     <div>
         <h3 class="mb-1 fw-bold text-body" style="font-size: 1.6rem;">Delivery Batches</h3>
-        <p class="mb-0 text-muted" style="font-size: 0.9rem;">Store → parent groups → child routes. Combined map to verify drivers; move orders / reorder stops before delivery starts.</p>
+        <p class="mb-0 text-muted" style="font-size: 0.9rem;">Store drivers are assigned when the batch is created (no accept step). Reassign before delivery starts; move orders / reorder stops while Ready.</p>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <a href="{{ url('/operations/delivery-batches/settings') }}" class="btn btn-outline-secondary d-flex align-items-center gap-2" style="border-radius: 8px; border-color: #e0e2e7; color: #566a7f;">
@@ -131,33 +155,41 @@ $deliveryChipClass = [
 
 <div class="card shadow-none border mb-3" style="border-radius: 12px;">
     <div class="card-body p-3">
-        <div class="row g-2 align-items-center">
+        <div class="row g-2 align-items-end">
             <div class="col-12 col-md-4 col-lg-3">
+                <label class="form-label mb-1 text-muted" style="font-size:0.75rem;font-weight:600;">Search</label>
                 <div class="input-group input-group-merge border rounded overflow-hidden" style="border-color: #e0e2e7 !important; border-radius: 8px !important;">
                     <span class="input-group-text border-0 bg-transparent ps-3"><i class="bx bx-search text-muted"></i></span>
                     <input type="text" class="form-control border-0 bg-transparent" id="search-batches" placeholder="Search store, group, batch, driver…" style="box-shadow: none; font-size: 0.88rem; height: 38px;">
                 </div>
             </div>
-            <div class="col-6 col-md-4 col-lg-2">
+            <div class="col-12 col-md-4 col-lg-3">
+                <label class="form-label mb-1 text-muted" style="font-size:0.75rem;font-weight:600;" for="filter-store">Store</label>
                 <select class="form-select" id="filter-store" style="border-radius: 8px; font-size: 0.88rem; height: 38px; border-color: #e0e2e7;">
                     <option value="">All Stores</option>
-                    @foreach ($stores as $store)
-                        <option value="{{ $store['id'] }}">{{ $store['name'] }}</option>
+                    @foreach ($filterStores as $store)
+                        <option value="{{ $store['id'] }}" @selected($activeStoreFilter === ($store['id'] ?? ''))>{{ $store['name'] }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="col-12 col-lg-7">
-                <div class="d-flex align-items-center gap-2 flex-wrap justify-content-lg-end" id="batch-tabs">
-                    <button type="button" class="btn btn-pill batch-tab active" data-status="active">Active ({{ $pendingCount + $assignedCount + $inProgressCount }})</button>
-                    <button type="button" class="btn btn-pill batch-tab" data-status="assigned">Assigned ({{ $assignedCount }})</button>
-                    <button type="button" class="btn btn-pill batch-tab" data-status="in_progress">In Progress ({{ $inProgressCount }})</button>
-                    <button type="button" class="btn btn-pill batch-tab" data-status="completed">Completed ({{ $completedCount }})</button>
-                    <button type="button" class="btn btn-pill batch-tab" data-status="cancelled">Cancelled ({{ $cancelledCount }})</button>
-                    <button type="button" class="btn btn-pill batch-tab" data-status="all">All</button>
+            <div class="col-12 col-lg-6">
+                <label class="form-label mb-1 text-muted d-block" style="font-size:0.75rem;font-weight:600;">Status</label>
+                <div class="d-flex align-items-center gap-2 flex-wrap" id="batch-tabs">
+                    <button type="button" class="btn btn-pill batch-tab {{ $activeStatusFilter === 'current' ? 'active' : '' }}" data-status="current" data-label="Current">Current ({{ $currentCount }})</button>
+                    <button type="button" class="btn btn-pill batch-tab {{ $activeStatusFilter === 'ready' ? 'active' : '' }}" data-status="ready" data-label="Ready">Ready ({{ $readyCount }})</button>
+                    <button type="button" class="btn btn-pill batch-tab {{ $activeStatusFilter === 'in_progress' ? 'active' : '' }}" data-status="in_progress" data-label="In Progress">In Progress ({{ $inProgressCount }})</button>
+                    <button type="button" class="btn btn-pill batch-tab {{ $activeStatusFilter === 'completed' ? 'active' : '' }}" data-status="completed" data-label="Completed">Completed ({{ $completedCount }})</button>
+                    <button type="button" class="btn btn-pill batch-tab {{ $activeStatusFilter === 'cancelled' ? 'active' : '' }}" data-status="cancelled" data-label="Cancelled">Cancelled ({{ $cancelledCount }})</button>
+                    <button type="button" class="btn btn-pill batch-tab {{ $activeStatusFilter === 'all' ? 'active' : '' }}" data-status="all" data-label="All">All</button>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<div class="alert alert-light border d-none mb-3" id="filter-empty" style="border-radius: 10px; font-size: 0.88rem;">
+    <i class="bx bx-info-circle me-1"></i>
+    No batches match the selected store / status filter.
 </div>
 
 <div class="alert alert-success d-none mb-3" id="generated-banner" style="border-radius: 10px; font-size: 0.88rem;">
@@ -215,6 +247,14 @@ $deliveryChipClass = [
                         <span class="status-chip {{ $groupMeta['class'] }}"><span class="dot"></span>{{ $groupMeta['label'] }}</span>
                         @if ((int) ($group['overflow_count'] ?? 0) > 0)
                             <span class="badge bg-label-warning rounded-pill">{{ (int) $group['overflow_count'] }} left pending</span>
+                        @endif
+                        @if (!empty($group['deletable']))
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-delete-group"
+                                    data-group-id="{{ $group['id'] }}"
+                                    title="Delete this parent group"
+                                    style="border-radius:8px;">
+                                <i class="bx bx-trash"></i> Delete group
+                            </button>
                         @endif
                         <i class="bx bx-chevron-down chevron-icon text-muted"></i>
                     </div>
@@ -297,6 +337,12 @@ $deliveryChipClass = [
                                                 data-store-id="{{ $batch['store_id'] }}"
                                                 style="border-radius:8px;">
                                             {{ empty($batch['driver']) ? 'Assign Driver' : 'Reassign Driver' }}
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-delete-batch"
+                                                data-batch-id="{{ $batch['id'] }}"
+                                                title="Delete this child batch"
+                                                style="border-radius:8px;">
+                                            <i class="bx bx-trash"></i>
                                         </button>
                                     @else
                                         <span class="badge bg-label-secondary rounded-pill">Locked</span>
@@ -703,7 +749,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     document.querySelectorAll('.group-header').forEach(header => {
-        header.addEventListener('click', () => {
+        header.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-delete-group')) return;
             const card = header.closest('.group-card');
             card?.classList.toggle('expanded');
             if (card?.classList.contains('expanded')) {
@@ -715,7 +762,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('.child-header').forEach(header => {
         header.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-reassign')) return;
+            if (e.target.closest('.btn-reassign, .btn-delete-batch')) return;
             const card = header.closest('.child-batch-card');
             card?.classList.toggle('expanded');
             if (card?.classList.contains('expanded')) {
@@ -724,33 +771,121 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    function matchesStatusFilter(statusesCsv, filter) {
-        const statuses = (statusesCsv || '').split(',').filter(Boolean);
+    function childMatchesStatus(childStatus, filter) {
         if (filter === 'all') return true;
-        if (filter === 'active') {
-            return statuses.some(s => ['pending', 'assigned', 'in_progress'].includes(s));
+        if (filter === 'current') {
+            return ['pending', 'assigned', 'in_progress'].includes(childStatus);
         }
-        return statuses.includes(filter);
+        if (filter === 'ready') {
+            return ['pending', 'assigned'].includes(childStatus);
+        }
+        return childStatus === filter;
+    }
+
+    function syncFilterUrl(storeId, status) {
+        const url = new URL(window.location.href);
+        if (storeId) url.searchParams.set('store', storeId);
+        else url.searchParams.delete('store');
+        if (status && status !== 'current') url.searchParams.set('status', status);
+        else url.searchParams.delete('status');
+        url.searchParams.delete('generated');
+        window.history.replaceState({}, '', url);
+    }
+
+    function updateTabCounts(storeId) {
+        const counts = { pending: 0, assigned: 0, in_progress: 0, completed: 0, cancelled: 0 };
+        document.querySelectorAll('.child-block').forEach(child => {
+            if (storeId && child.dataset.storeId !== storeId) return;
+            const s = child.dataset.status;
+            if (Object.prototype.hasOwnProperty.call(counts, s)) counts[s] += 1;
+        });
+        const ready = counts.pending + counts.assigned;
+        document.querySelectorAll('.batch-tab').forEach(tab => {
+            const key = tab.dataset.status;
+            const label = tab.dataset.label || key;
+            if (key === 'all') {
+                tab.textContent = label;
+                return;
+            }
+            if (key === 'current') {
+                tab.textContent = `${label} (${ready + counts.in_progress})`;
+                return;
+            }
+            if (key === 'ready') {
+                tab.textContent = `${label} (${ready})`;
+                return;
+            }
+            tab.textContent = `${label} (${counts[key] || 0})`;
+        });
     }
 
     function applyFilters() {
         const q = (document.getElementById('search-batches').value || '').toLowerCase();
         const storeId = document.getElementById('filter-store').value;
-        const status = document.querySelector('.batch-tab.active')?.dataset.status || 'active';
+        const status = document.querySelector('.batch-tab.active')?.dataset.status || 'current';
+        const showCompletedDetails = status === 'completed';
+        let anyVisible = false;
+
+        updateTabCounts(storeId);
+        syncFilterUrl(storeId, status);
 
         document.querySelectorAll('.store-block').forEach(storeEl => {
-            let anyGroupVisible = false;
-            storeEl.querySelectorAll('.group-block').forEach(groupEl => {
-                const matchStore = !storeId || groupEl.dataset.storeId === storeId;
-                const matchStatus = matchesStatusFilter(groupEl.dataset.statuses, status);
-                const matchQ = !q || (groupEl.dataset.search || '').includes(q) || (storeEl.dataset.search || '').includes(q);
-                const show = matchStore && matchStatus && matchQ;
-                groupEl.style.display = show ? '' : 'none';
-                if (show) anyGroupVisible = true;
-            });
             const storeMatch = !storeId || storeEl.dataset.storeId === storeId;
-            storeEl.style.display = storeMatch && anyGroupVisible ? '' : 'none';
+            let anyGroupVisible = false;
+
+            storeEl.querySelectorAll('.group-block').forEach(groupEl => {
+                let anyChildVisible = false;
+
+                groupEl.querySelectorAll('.child-block').forEach(child => {
+                    const matchStore = !storeId || child.dataset.storeId === storeId;
+                    const matchStatus = childMatchesStatus(child.dataset.status || '', status);
+                    const matchQ = !q
+                        || (groupEl.dataset.search || '').includes(q)
+                        || (storeEl.dataset.search || '').includes(q)
+                        || (child.dataset.batchId || '').toLowerCase().includes(q);
+                    const show = matchStore && matchStatus && matchQ;
+                    child.style.display = show ? '' : 'none';
+
+                    if (show) {
+                        anyChildVisible = true;
+                        if (showCompletedDetails) {
+                            child.classList.add('expanded');
+                            const mapEl = child.querySelector('[id^="batch-map-"]');
+                            if (mapEl) initMap(mapEl, false);
+                        }
+                    } else {
+                        child.classList.remove('expanded');
+                    }
+                });
+
+                const groupSearchMatch = !q
+                    || (groupEl.dataset.search || '').includes(q)
+                    || (storeEl.dataset.search || '').includes(q);
+                const showGroup = storeMatch && anyChildVisible && groupSearchMatch;
+                groupEl.style.display = showGroup ? '' : 'none';
+
+                const combinedMapWrap = groupEl.querySelector('.group-combined-map')?.closest('.mb-3');
+                if (combinedMapWrap) {
+                    // Combined map is for active route verification, not completed history.
+                    combinedMapWrap.style.display = showGroup && !showCompletedDetails && status !== 'cancelled'
+                        ? ''
+                        : 'none';
+                }
+
+                if (showGroup && showCompletedDetails) {
+                    groupEl.classList.add('expanded');
+                }
+
+                if (showGroup) anyGroupVisible = true;
+            });
+
+            const showStore = storeMatch && anyGroupVisible;
+            storeEl.style.display = showStore ? '' : 'none';
+            if (showStore) anyVisible = true;
         });
+
+        const emptyEl = document.getElementById('filter-empty');
+        if (emptyEl) emptyEl.classList.toggle('d-none', anyVisible || !document.querySelector('.store-block'));
     }
 
     document.getElementById('search-batches').addEventListener('input', applyFilters);
@@ -764,10 +899,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     applyFilters();
 
-    const firstGroup = document.querySelector('.group-card');
-    if (firstGroup) {
-        firstGroup.classList.add('expanded');
-        initMap(firstGroup.querySelector('.group-combined-map'), true);
+    const firstVisibleGroup = [...document.querySelectorAll('.group-card')]
+        .find(el => el.style.display !== 'none');
+    if (firstVisibleGroup && (document.querySelector('.batch-tab.active')?.dataset.status || 'current') !== 'completed') {
+        firstVisibleGroup.classList.add('expanded');
+        initMap(firstVisibleGroup.querySelector('.group-combined-map'), true);
     }
 
     document.querySelectorAll('.btn-reassign').forEach(btn => {
@@ -810,6 +946,84 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('assign-modal-hint').textContent =
                 `Reassign ${assignBatchId} to another available store driver.`;
             assignModal.show();
+        });
+    });
+
+    async function confirmDelete(title, text) {
+        if (typeof Swal === 'undefined') {
+            return window.confirm(text);
+        }
+        const result = await Swal.fire({
+            icon: 'warning',
+            title,
+            text,
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                confirmButton: 'btn btn-danger me-2 px-3 py-2',
+                cancelButton: 'btn btn-outline-secondary px-3 py-2',
+            },
+            buttonsStyling: false,
+        });
+        return result.isConfirmed;
+    }
+
+    document.querySelectorAll('.btn-delete-group').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const groupId = btn.dataset.groupId;
+            const ok = await confirmDelete(
+                'Delete batch group?',
+                `Delete ${groupId} and all child routes? Orders will return to pending and drivers will be freed.`
+            );
+            if (!ok) return;
+
+            try {
+                const res = await fetch(`{{ url('/operations/delivery-batches/groups') }}/${encodeURIComponent(groupId)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': CSRF,
+                    },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || 'Delete failed.');
+                }
+                window.location.reload();
+            } catch (err) {
+                notifyError(err.message || 'Delete failed.');
+            }
+        });
+    });
+
+    document.querySelectorAll('.btn-delete-batch').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const batchId = btn.dataset.batchId;
+            const ok = await confirmDelete(
+                'Delete child batch?',
+                `Delete ${batchId}? Its orders will return to pending and the driver will be freed.`
+            );
+            if (!ok) return;
+
+            try {
+                const res = await fetch(`{{ url('/operations/delivery-batches') }}/${encodeURIComponent(batchId)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': CSRF,
+                    },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || 'Delete failed.');
+                }
+                window.location.reload();
+            } catch (err) {
+                notifyError(err.message || 'Delete failed.');
+            }
         });
     });
 

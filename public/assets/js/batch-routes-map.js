@@ -172,7 +172,7 @@
                 );
 
                 if (!validBatches.length) {
-                    mapShell.innerHTML = '<div class="batch-map-empty">No assigned drivers with mapped stops yet.</div>';
+                    mapShell.innerHTML = '<div class="batch-map-empty">No stop coordinates on this route yet — regenerate with pending orders that have locations.</div>';
                     return;
                 }
 

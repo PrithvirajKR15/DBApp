@@ -101,6 +101,8 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
         Route::post('/delivery-batches/{code}/assign', [BatchController::class, 'assign'])->name('operations-orders-batches.assign');
         Route::post('/delivery-batches/move-order', [BatchController::class, 'moveOrder'])->name('operations-orders-batches.move-order');
         Route::post('/delivery-batches/{code}/reorder-stops', [BatchController::class, 'reorderStops'])->name('operations-orders-batches.reorder-stops');
+        Route::delete('/delivery-batches/groups/{code}', [BatchController::class, 'destroyGroup'])->name('operations-orders-batches.groups.destroy');
+        Route::delete('/delivery-batches/{code}', [BatchController::class, 'destroy'])->name('operations-orders-batches.destroy');
         Route::post('/delivery-batches/{code}/complete', [BatchController::class, 'complete'])->name('operations-orders-batches.complete');
         Route::post('/delivery-batches/{code}/cancel', [BatchController::class, 'cancel'])->name('operations-orders-batches.cancel');
 

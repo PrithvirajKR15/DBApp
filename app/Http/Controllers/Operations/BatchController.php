@@ -107,6 +107,26 @@ class BatchController extends Controller
         ]);
     }
 
+    public function destroy(string $code): JsonResponse
+    {
+        $result = $this->batches->deleteBatch($code);
+
+        return response()->json([
+            'message' => 'Batch deleted. Orders returned to pending.',
+            ...$result,
+        ]);
+    }
+
+    public function destroyGroup(string $code): JsonResponse
+    {
+        $result = $this->batches->deleteBatchGroup($code);
+
+        return response()->json([
+            'message' => 'Batch group deleted. Orders returned to pending.',
+            ...$result,
+        ]);
+    }
+
     public function complete(string $code): JsonResponse
     {
         $batch = $this->batches->completeBatch($code);
