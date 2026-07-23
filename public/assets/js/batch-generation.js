@@ -173,10 +173,12 @@
             ordersPerBatch = 5,
             maxDistanceKm = 10,
             maxRouteMinutes = 45,
+            maxBatches = Infinity,
         } = config;
 
         const speedKmh = AVG_SPEED_KMH;
         let unassigned = pendingOrders.filter((o) => o.lat != null && o.lng != null);
+        const unreachable = pendingOrders.filter((o) => o.lat == null || o.lng == null);
         const batches = [];
         let batchIndex = 1;
 
@@ -187,6 +189,8 @@
                 .filter((o) => o.zone_key && o.zone_key !== dominant)
                 .map((o) => o.id);
         }
+
+        const maxChildBatches = Number.isFinite(maxBatches) ? Math.max(0, Math.floor(maxBatches)) : Infinity;
 
         while (unassigned.length > 0) {
             let bestPlacement = null;
@@ -227,10 +231,24 @@
                 continue;
             }
 
+            // Cap: never open more child batches than available store drivers.
+            if (batches.length >= maxChildBatches) {
+                break;
+            }
+
             unassigned.sort(
                 (a, b) => roadKm(hub, a) - roadKm(hub, b)
             );
             const seed = unassigned.shift();
+            const soloMetrics = routeMetrics(hub, [seed]);
+            if (
+                soloMetrics.distanceKm > maxDistanceKm ||
+                soloMetrics.durationMin > maxRouteMinutes
+            ) {
+                unreachable.push(seed);
+                continue;
+            }
+
             const cluster = [seed];
 
             while (cluster.length < ordersPerBatch && unassigned.length > 0) {
@@ -269,12 +287,14 @@
             });
         }
 
+        const overflowOrders = [...unreachable, ...unassigned];
+
         const storeId = storeMeta.id;
         const storeName = storeMeta.name;
         const prefix = storeId.substring(0, 2).toUpperCase();
         const timestamp = Date.now().toString().slice(-4);
 
-        return batches.map((b, idx) => {
+        const shapedBatches = batches.map((b, idx) => {
             const orders = b._orders.map((o, stopIdx) => ({
                 stop: stopIdx + 1,
                 id: o.id,
@@ -332,6 +352,12 @@
                 generation_method: 'distance_optimized',
             };
         });
+
+        return {
+            batches: shapedBatches,
+            overflow: overflowOrders.map((o) => o.id),
+            overflow_count: overflowOrders.length,
+        };
     }
 
     global.DeliverEaseBatchGen = {

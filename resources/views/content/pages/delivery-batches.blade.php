@@ -1,35 +1,29 @@
 @php
 $isNavbar = false;
 $data = $data ?? [];
-$batches = $data['batches'] ?? [];
+$storesWithGroups = $data['stores_with_groups'] ?? [];
+$stores = $data['stores'] ?? [];
 $batchDrivers = $data['drivers'] ?? [];
+$batches = $data['batches'] ?? [];
 $pendingCount = count(array_filter($batches, fn ($b) => $b['status'] === 'pending'));
-$acceptedCount = count(array_filter($batches, fn ($b) => $b['status'] === 'accepted'));
 $assignedCount = count(array_filter($batches, fn ($b) => $b['status'] === 'assigned'));
-$transitCount = count(array_filter($batches, fn ($b) => $b['status'] === 'in_transit'));
+$inProgressCount = count(array_filter($batches, fn ($b) => $b['status'] === 'in_progress'));
 $completedCount = count(array_filter($batches, fn ($b) => $b['status'] === 'completed'));
+$cancelledCount = count(array_filter($batches, fn ($b) => $b['status'] === 'cancelled'));
 $statusMeta = [
     'pending' => ['label' => 'Waiting', 'class' => 'chip-waiting'],
-    'accepted' => ['label' => 'Accepted', 'class' => 'chip-accepted'],
     'assigned' => ['label' => 'Assigned', 'class' => 'chip-assigned'],
-    'in_transit' => ['label' => 'In Transit', 'class' => 'chip-out'],
+    'in_progress' => ['label' => 'In Progress', 'class' => 'chip-out'],
     'completed' => ['label' => 'Completed', 'class' => 'chip-completed'],
+    'cancelled' => ['label' => 'Cancelled', 'class' => 'chip-waiting'],
+    'open' => ['label' => 'Open', 'class' => 'chip-assigned'],
 ];
 $deliveryChipClass = [
     'Waiting' => 'chip-waiting',
-    'Accepted' => 'chip-accepted',
     'Assigned' => 'chip-assigned',
     'Out Delivery' => 'chip-out',
     'Delivered' => 'chip-completed',
 ];
-$storeById = collect($data['stores'] ?? [])->keyBy('id');
-foreach ($batches as &$batch) {
-    if (empty($batch['hub']) && !empty($batch['store_id']) && isset($storeById[$batch['store_id']])) {
-        $s = $storeById[$batch['store_id']];
-        $batch['hub'] = ['lat' => $s['lat'], 'lng' => $s['lng'], 'name' => $s['name']];
-    }
-}
-unset($batch);
 @endphp
 
 @extends('layouts/contentNavbarLayout')
@@ -46,14 +40,11 @@ unset($batch);
         border-color: #ff7a00 !important;
         color: #ffffff !important;
         font-weight: 600;
-        transition: all 0.2s ease-in-out;
     }
-    .btn-primary-orange:hover,
-    .btn-primary-orange:focus {
+    .btn-primary-orange:hover, .btn-primary-orange:focus {
         background-color: #e06b00 !important;
         border-color: #e06b00 !important;
         color: #ffffff !important;
-        box-shadow: 0 4px 12px rgba(255, 122, 0, 0.2) !important;
     }
     .btn-pill {
         border-radius: 20px !important;
@@ -68,178 +59,100 @@ unset($batch);
         background-color: #ff7a00 !important;
         border-color: #ff7a00 !important;
         color: #ffffff !important;
-        box-shadow: 0 2px 6px rgba(255, 122, 0, 0.2) !important;
     }
-    .batch-card {
+    .store-section, .group-card, .child-batch-card {
         border: 1px solid #e0e2e7;
         border-radius: 12px;
         background: #fff;
-        transition: box-shadow 0.2s ease;
-    }
-    .batch-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.04); }
-    .batch-icon {
-        width: 42px;
-        height: 42px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.25rem;
-        flex-shrink: 0;
     }
     .status-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        font-weight: 600;
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 4px 10px; border-radius: 6px;
+        font-size: 0.75rem; font-weight: 600;
     }
     .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
     .chip-waiting { background: rgba(255,171,0,0.12); color: #ffab00; }
     .chip-waiting .dot { background: #ffab00; }
-    .chip-accepted { background: rgba(0,207,232,0.12); color: #00cfe8; }
-    .chip-accepted .dot { background: #00cfe8; }
     .chip-assigned { background: rgba(105,108,255,0.12); color: #696cff; }
     .chip-assigned .dot { background: #696cff; }
     .chip-out { background: rgba(234,84,85,0.12); color: #ea5455; }
     .chip-out .dot { background: #ea5455; }
     .chip-completed { background: rgba(40,199,111,0.12); color: #28c76f; }
     .chip-completed .dot { background: #28c76f; }
-    .metric-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.4px; color: #8592a3; font-weight: 600; }
-    .metric-value { font-size: 0.95rem; font-weight: 700; color: #32475c; }
-    .batch-detail { display: none; border-top: 1px solid #f1f3f5; }
-    .batch-card.expanded .batch-detail { display: block; }
-    .batch-card.expanded .chevron-icon { transform: rotate(180deg); }
-    .chevron-icon { transition: transform 0.2s ease; }
     .stop-badge {
         width: 26px; height: 26px; border-radius: 50%;
         background: #32475c; color: #fff;
         display: inline-flex; align-items: center; justify-content: center;
         font-size: 0.75rem; font-weight: 700;
     }
-    .route-preview {
-        background: linear-gradient(145deg, #f8fafc 0%, #eef2f7 100%);
-        border: 1px solid #e0e2e7;
-        border-radius: 12px;
-        min-height: 220px;
-        position: relative;
-        overflow: hidden;
-    }
-    .route-preview::before {
-        content: '';
-        position: absolute;
-        inset: 20% 15%;
-        border: 2px dashed #cbd5e1;
-        border-radius: 40% 60% 50% 50%;
-        opacity: 0.7;
-    }
-    .route-dot {
-        position: absolute;
-        width: 10px; height: 10px;
-        border-radius: 50%;
-        background: #ff7a00;
-        border: 2px solid #fff;
-        box-shadow: 0 0 0 2px rgba(255,122,0,0.3);
-    }
-    .prep-ready { color: #28c76f; font-weight: 600; font-size: 0.78rem; }
-    .prep-packing { color: #ffab00; font-weight: 600; font-size: 0.78rem; }
-
+    .metric-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.4px; color: #8592a3; font-weight: 600; }
+    .metric-value { font-size: 0.95rem; font-weight: 700; color: #32475c; }
+    .child-detail { display: none; border-top: 1px solid #f1f3f5; }
+    .child-batch-card.expanded .child-detail { display: block; }
+    .child-batch-card.expanded .chevron-icon { transform: rotate(180deg); }
+    .chevron-icon { transition: transform 0.2s ease; }
+    .group-body { display: none; }
+    .group-card.expanded .group-body { display: block; }
+    .group-card.expanded > .group-header .chevron-icon { transform: rotate(180deg); }
     .driver-pick-card {
-        border: 1px solid #e0e2e7;
-        border-radius: 12px;
-        padding: 12px 14px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        background: #fff;
+        border: 1px solid #e0e2e7; border-radius: 12px; padding: 12px 14px;
+        cursor: pointer; transition: all 0.2s ease; background: #fff;
     }
     .driver-pick-card:hover { border-color: #ffb366; }
     .driver-pick-card.selected {
-        border-color: #ff7a00;
-        background: rgba(255, 122, 0, 0.03);
+        border-color: #ff7a00; background: rgba(255, 122, 0, 0.03);
         box-shadow: 0 0 0 1px rgba(255, 122, 0, 0.2);
     }
     .driver-pick-check {
-        width: 22px; height: 22px; border-radius: 50%;
-        border: 2px solid #d1d5db;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0; color: transparent;
+        width: 22px; height: 22px; border-radius: 50%; border: 2px solid #d1d5db;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: transparent;
     }
-    .driver-pick-card.selected .driver-pick-check {
-        border-color: #ff7a00; background: #ff7a00; color: #fff;
-    }
-    .driver-pick-check.square { border-radius: 6px; }
-    .assign-hint {
-        background: rgba(255, 122, 0, 0.06);
-        border: 1px solid rgba(255, 122, 0, 0.18);
-        border-radius: 10px;
-        padding: 10px 12px;
-        font-size: 0.82rem;
-        color: #566a7f;
-    }
+    .driver-pick-card.selected .driver-pick-check { border-color: #ff7a00; background: #ff7a00; color: #fff; }
+    .batch-orders-table tbody tr.order-row-draggable { cursor: grab; }
+    .batch-orders-table tbody tr.order-row-dragging { opacity: 0.45; }
+    .batch-orders-table tbody tr.order-row-drag-over { box-shadow: inset 0 2px 0 #ff7a00; }
+    .drag-handle { color: #8592a3; cursor: grab; font-size: 1rem; line-height: 1; }
 </style>
 
-<!-- Header -->
 <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
     <div>
-        <h3 class="mb-1 fw-bold text-body" style="font-size: 1.6rem; font-family: 'Public Sans', sans-serif;">Delivery Batch Review</h3>
-        <p class="mb-0 text-muted" style="font-size: 0.9rem;">Review routes, spot collisions between assigned drivers, and move orders before delivery starts.</p>
+        <h3 class="mb-1 fw-bold text-body" style="font-size: 1.6rem;">Delivery Batches</h3>
+        <p class="mb-0 text-muted" style="font-size: 0.9rem;">Store → parent groups → child routes. Combined map to verify drivers; move orders / reorder stops before delivery starts.</p>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-        <button type="button" class="btn btn-outline-secondary d-flex align-items-center gap-2" id="btn-scroll-collision" style="border-radius: 8px; border-color: #e0e2e7; color: #566a7f;">
-            <i class="bx bx-map-alt"></i>
-            <span>Driver Route Map</span>
-        </button>
         <a href="{{ url('/operations/delivery-batches/settings') }}" class="btn btn-outline-secondary d-flex align-items-center gap-2" style="border-radius: 8px; border-color: #e0e2e7; color: #566a7f;">
-            <i class="bx bx-cog"></i>
-            <span>Configuration</span>
+            <i class="bx bx-cog"></i><span>Configuration</span>
         </a>
         <a href="{{ url('/operations/delivery-batches/generate') }}" class="btn btn-primary-orange d-flex align-items-center gap-2" style="padding: 10px 18px; border-radius: 8px;">
-            <i class="bx bx-refresh"></i>
-            <span>Generate Batches</span>
+            <i class="bx bx-refresh"></i><span>Generate Batches</span>
         </a>
     </div>
 </div>
 
-<!-- Top Filters -->
 <div class="card shadow-none border mb-3" style="border-radius: 12px;">
     <div class="card-body p-3">
         <div class="row g-2 align-items-center">
             <div class="col-12 col-md-4 col-lg-3">
                 <div class="input-group input-group-merge border rounded overflow-hidden" style="border-color: #e0e2e7 !important; border-radius: 8px !important;">
                     <span class="input-group-text border-0 bg-transparent ps-3"><i class="bx bx-search text-muted"></i></span>
-                    <input type="text" class="form-control border-0 bg-transparent" id="search-batches" placeholder="Search batches, route, store..." style="box-shadow: none; font-size: 0.88rem; height: 38px;">
+                    <input type="text" class="form-control border-0 bg-transparent" id="search-batches" placeholder="Search store, group, batch, driver…" style="box-shadow: none; font-size: 0.88rem; height: 38px;">
                 </div>
             </div>
             <div class="col-6 col-md-4 col-lg-2">
                 <select class="form-select" id="filter-store" style="border-radius: 8px; font-size: 0.88rem; height: 38px; border-color: #e0e2e7;">
                     <option value="">All Stores</option>
-                    <option>Pattom SuperHub</option>
-                    <option>Palayam Express Hub</option>
-                    <option>Medical College Hub</option>
-                    <option>East Fort Market Hub</option>
-                    <option>Technopark Fresh Hub</option>
-                    <option>Kowdiar Central Store</option>
+                    @foreach ($stores as $store)
+                        <option value="{{ $store['id'] }}">{{ $store['name'] }}</option>
+                    @endforeach
                 </select>
             </div>
-            <div class="col-6 col-md-4 col-lg-2">
-                <select class="form-select" id="filter-zone" style="border-radius: 8px; font-size: 0.88rem; height: 38px; border-color: #e0e2e7;">
-                    <option value="">All Routes</option>
-                    <option>North</option>
-                    <option>Central</option>
-                    <option>West</option>
-                    <option>East</option>
-                    <option>South</option>
-                </select>
-            </div>
-            <div class="col-12 col-lg-5">
+            <div class="col-12 col-lg-7">
                 <div class="d-flex align-items-center gap-2 flex-wrap justify-content-lg-end" id="batch-tabs">
-                    <button type="button" class="btn btn-pill batch-tab active" data-status="pending">Waiting ({{ $pendingCount }})</button>
-                    <button type="button" class="btn btn-pill batch-tab" data-status="accepted">Accepted ({{ $acceptedCount }})</button>
+                    <button type="button" class="btn btn-pill batch-tab active" data-status="active">Active ({{ $pendingCount + $assignedCount + $inProgressCount }})</button>
                     <button type="button" class="btn btn-pill batch-tab" data-status="assigned">Assigned ({{ $assignedCount }})</button>
-                    <button type="button" class="btn btn-pill batch-tab" data-status="in_transit">In Transit ({{ $transitCount }})</button>
+                    <button type="button" class="btn btn-pill batch-tab" data-status="in_progress">In Progress ({{ $inProgressCount }})</button>
                     <button type="button" class="btn btn-pill batch-tab" data-status="completed">Completed ({{ $completedCount }})</button>
+                    <button type="button" class="btn btn-pill batch-tab" data-status="cancelled">Cancelled ({{ $cancelledCount }})</button>
                     <button type="button" class="btn btn-pill batch-tab" data-status="all">All</button>
                 </div>
             </div>
@@ -249,1143 +162,851 @@ unset($batch);
 
 <div class="alert alert-success d-none mb-3" id="generated-banner" style="border-radius: 10px; font-size: 0.88rem;">
     <i class="bx bx-check-circle me-1"></i>
-    <span id="generated-banner-text">New batches generated using distance-based route optimization.</span>
+    <span id="generated-banner-text">Parent batch group created with store drivers assigned.</span>
 </div>
 
-<!-- Assigned drivers route collision overview -->
-<div class="collision-panel mb-4" id="assigned-drivers-panel">
-    <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 p-3 border-bottom">
-        <div>
-            <h5 class="mb-1 fw-bold text-body" style="font-size: 1.1rem;">
-                <i class="bx bx-map-alt me-1" style="color:#696cff;"></i>
-                Assigned Drivers — Route Overview
-            </h5>
-            <p class="mb-0 text-muted" style="font-size: 0.88rem;">
-                Drivers who are assigned but have not started delivery. Reorder stop numbers (1, 2, 3…) within a route, or move an order to another driver when routes collide.
-            </p>
-        </div>
-        <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-label-primary rounded-pill" id="collision-driver-count">0 drivers</span>
-            <select class="form-select form-select-sm" id="collision-store-filter" style="width: auto; border-radius: 8px; min-width: 180px;">
-                <option value="">All stores</option>
-                <option value="downtown" selected>Pattom SuperHub</option>
-                <option value="uptown">Palayam Express Hub</option>
-                <option value="westside">Medical College Hub</option>
-                <option value="harbor">East Fort Market Hub</option>
-                <option value="eastside">Technopark Fresh Hub</option>
-                <option value="central">Kowdiar Central Store</option>
-            </select>
-        </div>
-    </div>
-    <div class="p-3">
-        <div class="collision-banner mb-3" id="collision-pick-banner">
-            <i class="bx bx-info-circle me-1" style="color:#696cff;"></i>
-            Use <strong>↑ ↓</strong> to change delivery order within a driver’s route, or the transfer icon to <strong>move</strong> an order to another driver.
-        </div>
-        <div class="alert alert-warning d-none mb-3 py-2" id="collision-picked-bar" style="border-radius: 10px; font-size: 0.88rem;">
-            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <span id="collision-picked-text">Order picked</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="collision-cancel-pick" style="border-radius: 6px;">Cancel</button>
+<div class="d-flex flex-column gap-3" id="store-list">
+@forelse ($storesWithGroups as $storeBlock)
+    @php
+        $storeGroups = $storeBlock['groups'] ?? [];
+    @endphp
+    <div class="store-section p-3 store-block"
+         data-store-id="{{ $storeBlock['id'] }}"
+         data-search="{{ strtolower(($storeBlock['name'] ?? '').' '.($storeBlock['id'] ?? '')) }}">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+            <div>
+                <h5 class="mb-0 fw-bold text-body">{{ $storeBlock['name'] }}</h5>
+                <small class="text-muted">
+                    {{ count($storeGroups) }} parent group{{ count($storeGroups) === 1 ? '' : 's' }}
+                    · {{ (int) ($storeBlock['pending'] ?? 0) }} pending orders
+                    · {{ (int) ($storeBlock['available_drivers'] ?? 0) }} drivers free
+                </small>
             </div>
         </div>
-        <div class="row g-3">
-            <div class="col-lg-8">
-                <div id="assigned-drivers-map" style="height: 480px;"></div>
-            </div>
-            <div class="col-lg-4">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <h6 class="fw-bold text-body mb-0">Drivers & stops</h6>
-                    <small class="text-muted" id="collision-hint">↑↓ reorder · transfer to move</small>
+
+        <div class="d-flex flex-column gap-2">
+        @foreach ($storeGroups as $group)
+            @php
+                $groupMeta = $statusMeta[$group['status']] ?? ['label' => ucfirst($group['status']), 'class' => 'chip-waiting'];
+                $groupSearch = strtolower(($group['id'] ?? '').' '.($group['store'] ?? ''));
+                foreach ($group['batches'] ?? [] as $gb) {
+                    $groupSearch .= ' '.strtolower(($gb['id'] ?? '').' '.($gb['driver']['name'] ?? '').' '.($gb['driver']['id'] ?? '').' '.($gb['status'] ?? ''));
+                }
+            @endphp
+            <div class="group-card group-block"
+                 data-group-id="{{ $group['id'] }}"
+                 data-store-id="{{ $storeBlock['id'] }}"
+                 data-statuses="{{ implode(',', collect($group['batches'] ?? [])->pluck('status')->all()) }}"
+                 data-search="{{ $groupSearch }}">
+                <div class="group-header p-3 d-flex align-items-center justify-content-between gap-2 flex-wrap" style="cursor:pointer;">
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                        <div class="batch-icon" style="width:40px;height:40px;border-radius:10px;background:rgba(255,122,0,0.12);color:#ff7a00;display:flex;align-items:center;justify-content:center;">
+                            <i class="bx bx-layer"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="fw-bold text-body text-truncate">{{ $group['id'] }}</div>
+                            <small class="text-muted">
+                                {{ (int) $group['batch_count'] }} routes · {{ (int) $group['order_count'] }} orders
+                                @if (!empty($group['created_at'])) · {{ $group['created_at'] }} @endif
+                            </small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="status-chip {{ $groupMeta['class'] }}"><span class="dot"></span>{{ $groupMeta['label'] }}</span>
+                        @if ((int) ($group['overflow_count'] ?? 0) > 0)
+                            <span class="badge bg-label-warning rounded-pill">{{ (int) $group['overflow_count'] }} left pending</span>
+                        @endif
+                        <i class="bx bx-chevron-down chevron-icon text-muted"></i>
+                    </div>
                 </div>
-                <div class="d-flex flex-column gap-2" id="collision-driver-list" style="max-height: 440px; overflow-y: auto;"></div>
+                <div class="group-body px-3 pb-3">
+                    @php
+                        $groupMapId = 'group-map-' . preg_replace('/[^a-zA-Z0-9]/', '-', $group['id']);
+                        $groupHub = collect($group['batches'] ?? [])->firstWhere(fn ($b) => !empty($b['hub']))['hub']
+                            ?? null;
+                        $groupMapBatches = collect($group['batches'] ?? [])->map(fn ($b) => [
+                            'id' => $b['id'],
+                            'route_label' => $b['route_label'] ?? $b['zone'],
+                            'status' => $b['status'],
+                            'editable' => !empty($b['editable']),
+                            'orders' => $b['orders'] ?? [],
+                            'driver' => $b['driver'] ?? null,
+                            'hub' => $b['hub'] ?? $groupHub,
+                            'route' => $b['route'] ?? null,
+                        ])->values()->all();
+                        $siblingEditable = collect($group['batches'] ?? [])
+                            ->filter(fn ($b) => !empty($b['editable']))
+                            ->map(fn ($b) => [
+                                'id' => $b['id'],
+                                'label' => ($b['driver']['name'] ?? 'Unassigned').' · '.$b['id'],
+                                'driver' => $b['driver']['name'] ?? null,
+                            ])->values()->all();
+                    @endphp
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                            <div>
+                                <h6 class="mb-0 fw-bold text-body"><i class="bx bx-map-alt me-1" style="color:#ff7a00;"></i> Combined group routes</h6>
+                                <small class="text-muted">Click a stop number to move that order to another driver. Locked batches stay read-only.</small>
+                            </div>
+                        </div>
+                        <div id="{{ $groupMapId }}"
+                             class="border rounded group-combined-map"
+                             style="height:360px;border-radius:10px !important;"
+                             data-map-payload='@json(['hub' => $groupHub, 'batches' => $groupMapBatches])'></div>
+                    </div>
+
+                    <div class="d-flex flex-column gap-2">
+                    @foreach ($group['batches'] ?? [] as $batch)
+                        @php
+                            $meta = $statusMeta[$batch['status']] ?? ['label' => ucfirst((string) $batch['status']), 'class' => 'chip-waiting'];
+                            $editable = !empty($batch['editable']);
+                            $batchMapId = 'batch-map-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', $batch['id']);
+                            $batchMapPayload = [
+                                'hub' => $batch['hub'] ?? $groupHub,
+                                'batch' => [
+                                    'id' => $batch['id'],
+                                    'route_label' => $batch['route_label'] ?? $batch['zone'],
+                                    'orders' => $batch['orders'] ?? [],
+                                    'driver' => $batch['driver'] ?? null,
+                                    'route' => $batch['route'] ?? null,
+                                ],
+                            ];
+                        @endphp
+                        <div class="child-batch-card child-block"
+                             data-batch-id="{{ $batch['id'] }}"
+                             data-status="{{ $batch['status'] }}"
+                             data-store-id="{{ $batch['store_id'] }}"
+                             data-group-id="{{ $group['id'] }}"
+                             data-editable="{{ $editable ? '1' : '0' }}"
+                             data-siblings='@json($siblingEditable)'>
+                            <div class="p-3 d-flex align-items-center justify-content-between gap-2 flex-wrap child-header" style="cursor:pointer;">
+                                <div class="min-w-0">
+                                    <div class="fw-bold text-body">{{ $batch['id'] }} · {{ $batch['route_label'] ?? $batch['zone'] }}</div>
+                                    <small class="text-muted">
+                                        {{ (int) $batch['stops'] }} stops · {{ $batch['distance'] ?? '—' }} · {{ $batch['est_time'] ?? '—' }}
+                                        @if (!empty($batch['driver']))
+                                            · {{ $batch['driver']['name'] }}
+                                        @endif
+                                    </small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="status-chip {{ $meta['class'] }}"><span class="dot"></span>{{ $meta['label'] }}</span>
+                                    @if ($editable)
+                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-reassign"
+                                                data-batch-id="{{ $batch['id'] }}"
+                                                data-store-id="{{ $batch['store_id'] }}"
+                                                style="border-radius:8px;">
+                                            {{ empty($batch['driver']) ? 'Assign Driver' : 'Reassign Driver' }}
+                                        </button>
+                                    @else
+                                        <span class="badge bg-label-secondary rounded-pill">Locked</span>
+                                    @endif
+                                    <i class="bx bx-chevron-down chevron-icon text-muted"></i>
+                                </div>
+                            </div>
+                            <div class="child-detail p-3">
+                                <div class="row g-3">
+                                    <div class="col-lg-7">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle mb-0 batch-orders-table">
+                                                <thead>
+                                                    <tr class="text-muted" style="font-size:0.75rem;">
+                                                        <th style="width:90px;">Stop</th>
+                                                        <th>Order</th>
+                                                        <th>Customer</th>
+                                                        <th>Address</th>
+                                                        <th>Status</th>
+                                                        @if ($editable)
+                                                            <th style="width:120px;">Actions</th>
+                                                        @endif
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                @foreach ($batch['orders'] ?? [] as $order)
+                                                    <tr style="font-size:0.85rem;"
+                                                        data-order-code="{{ $order['id'] }}"
+                                                        @if ($editable) class="order-row-draggable" draggable="true" @endif>
+                                                        <td>
+                                                            <div class="d-flex align-items-center gap-1">
+                                                                @if ($editable)
+                                                                    <i class="bx bx-menu drag-handle" title="Drag to reorder"></i>
+                                                                @endif
+                                                                <span class="stop-badge">{{ $order['stop'] }}</span>
+                                                                @if ($editable)
+                                                                    <div class="btn-group-vertical">
+                                                                        <button type="button" class="btn btn-sm btn-link p-0 text-muted btn-stop-up" title="Move stop up" style="line-height:1;"><i class="bx bx-chevron-up"></i></button>
+                                                                        <button type="button" class="btn btn-sm btn-link p-0 text-muted btn-stop-down" title="Move stop down" style="line-height:1;"><i class="bx bx-chevron-down"></i></button>
+                                                                    </div>
+                                                                @endif
+                                                            </div>
+                                                        </td>
+                                                        <td class="fw-semibold">{{ $order['id'] }}</td>
+                                                        <td>{{ $order['customer'] }}</td>
+                                                        <td class="text-muted">{{ $order['locality'] ?? $order['address'] }}</td>
+                                                        <td>
+                                                            @php $dClass = $deliveryChipClass[$order['delivery'] ?? ''] ?? 'chip-waiting'; @endphp
+                                                            <span class="status-chip {{ $dClass }}"><span class="dot"></span>{{ $order['delivery'] ?? '—' }}</span>
+                                                        </td>
+                                                        @if ($editable)
+                                                            <td>
+                                                                <button type="button"
+                                                                        class="btn btn-sm btn-outline-secondary btn-move-order"
+                                                                        data-order-code="{{ $order['id'] }}"
+                                                                        data-from-batch="{{ $batch['id'] }}"
+                                                                        style="border-radius:8px;font-size:0.75rem;">
+                                                                    Move
+                                                                </button>
+                                                            </td>
+                                                        @endif
+                                                    </tr>
+                                                @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-5">
+                                        <div id="{{ $batchMapId }}" class="border rounded" style="height:240px;border-radius:10px !important;"
+                                             data-map-payload='@json($batchMapPayload)'></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                    </div>
+                </div>
+            </div>
+        @endforeach
+        </div>
+    </div>
+@empty
+    <div class="card shadow-none border" style="border-radius:12px;">
+        <div class="card-body text-center py-5 text-muted">
+            <i class="bx bx-package" style="font-size:2rem;"></i>
+            <div class="mt-2">No parent batch groups yet. Generate batches for a store to get started.</div>
+            <a href="{{ url('/operations/delivery-batches/generate') }}" class="btn btn-primary-orange mt-3" style="border-radius:8px;">Generate Batches</a>
+        </div>
+    </div>
+@endforelse
+</div>
+
+<!-- Assign / Reassign Modal -->
+<div class="modal fade" id="assignDriverModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 14px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Assign Store Driver</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3" style="font-size:0.88rem;" id="assign-modal-hint">Select an available store driver for this route.</p>
+                <div class="d-flex flex-column gap-2" id="assign-driver-list"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius:8px;">Cancel</button>
+                <button type="button" class="btn btn-primary-orange" id="confirm-assign-driver" style="border-radius:8px;" disabled>Confirm</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Move order modal -->
+<!-- Move Order Modal -->
 <div class="modal fade" id="moveOrderModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content" style="border-radius: 14px;">
             <div class="modal-header border-0 pb-0">
-                <div>
-                    <h5 class="modal-title fw-bold mb-0">Move Order to Another Driver</h5>
-                    <small class="text-muted" id="move-order-summary">—</small>
-                </div>
+                <h5 class="modal-title fw-bold">Move Order to Another Driver</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body pt-3">
-                <p class="text-muted mb-3" style="font-size: 0.88rem;">Choose a driver who is assigned but has not started. The order will be added to their route and removed from the current driver.</p>
-                <div class="d-flex flex-column gap-2" id="move-target-list"></div>
+            <div class="modal-body">
+                <p class="text-muted mb-2" style="font-size:0.88rem;" id="move-order-hint">Choose another unlocked batch in this parent group.</p>
+                <select class="form-select" id="move-target-batch" style="border-radius:8px;">
+                    <option value="">Select target batch…</option>
+                </select>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
-                <button type="button" class="btn btn-primary-orange" id="confirm-move-order" style="border-radius: 8px;" disabled>
-                    <i class="bx bx-transfer me-1"></i>Confirm Move
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Batch List -->
-<div class="d-flex flex-column gap-3" id="batch-list">
-    @foreach ($batches as $i => $batch)
-    @php
-        $meta = $statusMeta[$batch['status']];
-        $iconBg = match($batch['status']) {
-            'pending' => 'rgba(255,171,0,0.12)',
-            'accepted' => 'rgba(0,207,232,0.12)',
-            'assigned' => 'rgba(105,108,255,0.12)',
-            'in_transit' => 'rgba(234,84,85,0.12)',
-            'completed' => 'rgba(40,199,111,0.12)',
-            default => 'rgba(133,146,163,0.12)',
-        };
-        $iconColor = match($batch['status']) {
-            'pending' => '#ffab00',
-            'accepted' => '#00cfe8',
-            'assigned' => '#696cff',
-            'in_transit' => '#ea5455',
-            'completed' => '#28c76f',
-            default => '#8592a3',
-        };
-    @endphp
-    @php
-        $batchMapId = 'batch-map-' . preg_replace('/[^a-zA-Z0-9]/', '-', $batch['id']);
-        $batchMapPayload = [
-            'hub' => $batch['hub'] ?? null,
-            'batch' => [
-                'id' => $batch['id'],
-                'route_label' => $batch['route_label'] ?? $batch['zone'],
-                'zone' => $batch['zone'],
-                'orders' => $batch['orders'],
-                'suggested_driver' => $batch['suggested_driver'] ?? null,
-            ],
-        ];
-        $gmapsWaypoints = collect($batch['orders'] ?? [])
-            ->filter(fn ($o) => !empty($o['lat']) && !empty($o['lng']))
-            ->sortBy('stop')
-            ->map(fn ($o) => $o['lat'].','.$o['lng'])
-            ->values()
-            ->all();
-        $gmapsUrl = !empty($batch['hub']['lat']) && count($gmapsWaypoints)
-            ? 'https://www.google.com/maps/dir/?api=1&origin='.$batch['hub']['lat'].','.$batch['hub']['lng'].'&destination='.$batch['hub']['lat'].','.$batch['hub']['lng'].'&waypoints='.implode('|', $gmapsWaypoints).'&travelmode=driving'
-            : '#';
-    @endphp
-    <div class="batch-card {{ $i === 0 ? 'expanded' : '' }}"
-         data-status="{{ $batch['status'] }}"
-         data-search="{{ strtolower($batch['id'].' '.$batch['zone'].' '.$batch['store']) }}"
-         data-store="{{ $batch['store'] }}"
-         data-zone="{{ $batch['zone'] }}"
-         data-zone-key="{{ $batch['zone_key'] }}"
-         data-store-id="{{ $batch['store_id'] ?? '' }}"
-         data-batch-id="{{ $batch['id'] }}"
-         data-batch-map='@json($batchMapPayload)'
-         data-map-id="{{ $batchMapId }}">
-        <div class="p-3 d-flex align-items-center gap-3 flex-wrap batch-summary" style="cursor: pointer;">
-            <div class="batch-icon" style="background: {{ $iconBg }}; color: {{ $iconColor }};">
-                <i class="bx {{ $batch['status'] === 'completed' ? 'bx-check-double' : 'bx-package' }}"></i>
-            </div>
-            <div class="flex-grow-1 min-w-0" style="min-width: 180px;">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <span class="fw-bold text-body">Batch #{{ $batch['id'] }}</span>
-                    <span class="status-chip {{ $meta['class'] }}"><span class="dot"></span>{{ $meta['label'] }}</span>
-                </div>
-                <small class="text-muted"><i class="bx bx-map-pin"></i> {{ $batch['zone'] }} · {{ $batch['store'] }}</small>
-                @if (!empty($batch['completed_at']))
-                <div style="font-size: 0.78rem; color: #28c76f; margin-top: 2px;">
-                    <i class="bx bx-check-circle"></i> Completed {{ $batch['completed_at'] }}
-                </div>
-                @endif
-            </div>
-            <div class="d-flex align-items-center gap-4 flex-wrap">
-                <div class="text-center">
-                    <div class="metric-label">Orders</div>
-                    <div class="metric-value">{{ $batch['stops'] }} Stops</div>
-                </div>
-                <div class="text-center">
-                    <div class="metric-label">Distance</div>
-                    <div class="metric-value">{{ $batch['distance'] }}</div>
-                </div>
-                <div class="text-center">
-                    <div class="metric-label">{{ $batch['status'] === 'completed' ? 'Actual Time' : 'Est. Time' }}</div>
-                    <div class="metric-value">{{ $batch['status'] === 'completed' ? ($batch['actual_time'] ?? $batch['est_time']) : $batch['est_time'] }}</div>
-                </div>
-                <div class="text-center">
-                    <div class="metric-label">Total Value</div>
-                    <div class="metric-value">${{ number_format($batch['value'], 2) }}</div>
-                </div>
-            </div>
-            <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
-                @if ($batch['driver'])
-                <div class="d-flex align-items-center gap-2 me-2">
-                    <div class="avatar avatar-xs" style="width: 28px; height: 28px;">
-                        <img src="{{ asset('assets/img/avatars/'.$batch['driver']['avatar']) }}" class="rounded-circle" alt="">
-                    </div>
-                    <small class="fw-semibold text-body">{{ $batch['driver']['name'] }}</small>
-                </div>
-                @endif
-                <button type="button" class="btn btn-sm btn-outline-secondary btn-view-details" style="border-radius: 6px;">View Details</button>
-                @if ($batch['status'] === 'pending')
-                <button type="button" class="btn btn-sm btn-primary-orange btn-assign-batch" style="border-radius: 6px;">Assign Driver</button>
-                @elseif ($batch['status'] === 'completed')
-                <button type="button" class="btn btn-sm btn-outline-success" style="border-radius: 6px; pointer-events: none;">
-                    <i class="bx bx-check me-1"></i>Delivered
-                </button>
-                @endif
-                <button type="button" class="btn btn-sm btn-icon btn-text-secondary toggle-batch">
-                    <i class="bx bx-chevron-down chevron-icon" style="font-size: 1.25rem;"></i>
-                </button>
-            </div>
-        </div>
-
-        <div class="batch-detail px-3 pb-3">
-            @if ($batch['status'] === 'completed')
-            <div class="d-flex flex-wrap gap-3 mb-3 p-3 rounded-3" style="background: rgba(40,199,111,0.06); border: 1px solid rgba(40,199,111,0.18);">
-                <div>
-                    <div class="metric-label">Completed</div>
-                    <div class="fw-semibold text-body">{{ $batch['completed_at'] ?? '—' }}</div>
-                </div>
-                <div>
-                    <div class="metric-label">Driver</div>
-                    <div class="fw-semibold text-body">{{ $batch['driver']['name'] ?? '—' }} ({{ $batch['driver']['id'] ?? '' }})</div>
-                </div>
-                <div>
-                    <div class="metric-label">Est. vs Actual</div>
-                    <div class="fw-semibold text-body">{{ $batch['est_time'] }} → {{ $batch['actual_time'] ?? $batch['est_time'] }}</div>
-                </div>
-                <div>
-                    <div class="metric-label">Stops Delivered</div>
-                    <div class="fw-semibold text-body">{{ $batch['stops'] }} / {{ $batch['stops'] }}</div>
-                </div>
-            </div>
-            @endif
-            <div class="row g-3 pt-1">
-                <div class="col-lg-7">
-                    <h6 class="fw-bold text-body mb-3">{{ $batch['status'] === 'completed' ? 'Delivered Orders' : 'Orders in Batch' }}</h6>
-                    <div class="table-responsive border rounded-3" style="border-color: #e0e2e7 !important;">
-                        <table class="table table-sm mb-0" style="font-size: 0.85rem;">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Stop</th>
-                                    <th>Order & Customer</th>
-                                    <th>Address</th>
-                                    <th>Value</th>
-                                    <th>Payment</th>
-                                    <th>Delivery</th>
-                                    @if ($batch['status'] === 'completed')
-                                    <th>Delivered At</th>
-                                    @endif
-                                    <th class="text-end">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($batch['orders'] as $order)
-                                @php
-                                    $orderDelivery = $order['delivery'] ?? ($batch['status'] === 'completed' ? 'Delivered' : ($order['prep'] ?? 'Waiting'));
-                                    $chipClass = $deliveryChipClass[$orderDelivery] ?? 'chip-waiting';
-                                    $orderDetailUrl = $orderDelivery === 'Delivered'
-                                        ? url('/operations/orders/'.$order['id'].'/completed').'?from=batch'
-                                        : url('/operations/orders/'.$order['id']).'?from=batch';
-                                @endphp
-                                <tr class="batch-order-row" style="cursor: pointer;" onclick="window.location='{{ $orderDetailUrl }}'">
-                                    <td><span class="stop-badge" @if($batch['status'] === 'completed') style="background:#28c76f;" @endif>{{ $order['stop'] }}</span></td>
-                                    <td>
-                                        <a href="{{ $orderDetailUrl }}" class="fw-semibold text-decoration-none" style="color: #ff7a00;" onclick="event.stopPropagation();">#{{ $order['id'] }}</a>
-                                        <small class="text-muted d-block">{{ $order['customer'] }}</small>
-                                    </td>
-                                    <td class="text-muted" style="max-width: 180px;">{{ $order['address'] }}</td>
-                                    <td class="fw-semibold">${{ number_format($order['value'], 2) }}</td>
-                                    <td>{{ $order['payment'] }}</td>
-                                    <td>
-                                        <span class="status-chip {{ $chipClass }}"><span class="dot"></span>{{ $orderDelivery }}</span>
-                                    </td>
-                                    @if ($batch['status'] === 'completed')
-                                    <td class="text-muted">{{ $order['delivered_at'] ?? '—' }}</td>
-                                    @endif
-                                    <td class="text-end">
-                                        <a href="{{ $orderDetailUrl }}" class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; font-size: 0.75rem;" onclick="event.stopPropagation();">Details</a>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="col-lg-5">
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <h6 class="fw-bold text-body mb-0">{{ $batch['status'] === 'completed' ? 'Completed Route' : 'Route Map' }}</h6>
-                        <a href="{{ $gmapsUrl }}" target="_blank" rel="noopener" class="text-decoration-none btn-open-gmaps" style="color: #ff7a00; font-size: 0.85rem; font-weight: 600;{{ $gmapsUrl === '#' ? ' pointer-events:none; opacity:0.5;' : '' }}">
-                            Open in Maps <i class="bx bx-link-external"></i>
-                        </a>
-                    </div>
-                    <div id="{{ $batchMapId }}" class="batch-detail-map-wrap batch-routes-map-wrap mb-2"></div>
-                    <div class="d-flex justify-content-between" style="font-size: 0.82rem;">
-                        <small class="text-muted"><i class="bx bx-trip"></i> Hub → Stop 1: {{ $batch['route']['hub_to_first'] }}</small>
-                        <small class="text-muted"><i class="bx bx-undo"></i> Return: {{ $batch['route']['return'] }}</small>
-                    </div>
-                    <small class="text-muted d-block mt-2">
-                        @if ($batch['status'] === 'completed')
-                            All stops in this batch were delivered successfully.
-                        @else
-                            Dashed lines show optimized stop sequence from the store hub.
-                        @endif
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div>
-    @endforeach
-</div>
-
-<div class="d-flex align-items-center justify-content-between mt-4 flex-wrap gap-2">
-    <span class="text-muted" style="font-size: 0.88rem;" id="batch-showing">Showing {{ count($batches) }} batches</span>
-    <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary btn-sm" disabled style="border-radius: 6px;">Previous</button>
-        <button class="btn btn-outline-secondary btn-sm" style="border-radius: 6px;">Next</button>
-    </div>
-</div>
-
-<!-- Assign Driver Modal -->
-<div class="modal fade" id="assignBatchDriverModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content" style="border-radius: 14px;">
-            <div class="modal-header border-0 pb-0">
-                <div>
-                    <h5 class="modal-title fw-bold mb-0">Assign Store Driver</h5>
-                    <small class="text-muted">Store drivers for this hub · <span class="fw-semibold text-body" id="assign-zone-label">—</span></small>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body pt-3">
-                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                    <div>
-                        <div class="text-muted" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px;">Batch</div>
-                        <div class="fw-bold text-body" id="assign-batch-id">—</div>
-                    </div>
-                    <div class="input-group input-group-merge border rounded" style="width: 220px; border-radius: 8px !important; border-color: #e0e2e7 !important;">
-                        <span class="input-group-text border-0 bg-transparent"><i class="bx bx-search text-muted"></i></span>
-                        <input type="text" class="form-control border-0 bg-transparent" id="search-batch-drivers" placeholder="Search drivers..." style="box-shadow: none; font-size: 0.88rem;">
-                    </div>
-                </div>
-
-                <div class="assign-hint mb-3">
-                    <i class="bx bx-info-circle" style="color: #ff7a00;"></i>
-                    <strong>Store drivers only.</strong> Delivery batches cannot be assigned to zone/individual drivers. Once assigned, the store driver must deliver this route.
-                </div>
-
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <small class="text-muted fw-semibold text-uppercase" style="letter-spacing: 0.4px;">
-                        Available store drivers <span class="badge rounded-pill bg-label-warning ms-1" id="store-count-badge">0</span>
-                    </small>
-                </div>
-                <div id="store-drivers-panel">
-                    <div class="d-flex flex-column gap-2" id="store-driver-list" style="max-height: 320px; overflow-y: auto;"></div>
-                    <div class="text-muted text-center py-4 d-none" id="store-empty">No available store drivers for this hub.</div>
-                </div>
-            </div>
-            <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
-                <button type="button" class="btn btn-primary-orange" id="confirm-batch-assign" style="border-radius: 8px;" disabled>
-                    <i class="bx bx-check me-1"></i>Assign Driver
-                </button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius:8px;">Cancel</button>
+                <button type="button" class="btn btn-primary-orange" id="confirm-move-order" style="border-radius:8px;" disabled>Move Order</button>
             </div>
         </div>
     </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{{ asset('assets/js/batch-generation.js') }}"></script>
 <script src="{{ asset('assets/js/batch-routes-map.js') }}"></script>
 <script>
-const BATCH_DRIVERS = @json($batchDrivers);
-const AVATAR_BASE = @json(asset('assets/img/avatars'));
-const DELIVERY_CHIP_CLASS = @json($deliveryChipClass);
-const ALL_BATCHES = @json($batches);
-const BATCH_COLORS = ['#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#14b8a6'];
-
 document.addEventListener('DOMContentLoaded', function () {
-    let activeStatus = 'pending';
-    const assignModal = new bootstrap.Modal(document.getElementById('assignBatchDriverModal'));
+    const BATCH_DRIVERS = @json($batchDrivers);
+    const AVATAR_BASE = @json(asset('assets/img/avatars'));
+    const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const DELIVERY_CHIP = @json($deliveryChipClass);
+    let assignBatchId = null;
+    let assignStoreId = null;
+    let selectedDriverCode = null;
+    let moveOrderCode = null;
+    let moveFromBatch = null;
+    const assignModal = new bootstrap.Modal(document.getElementById('assignDriverModal'));
     const moveModal = new bootstrap.Modal(document.getElementById('moveOrderModal'));
-    let currentBatchCard = null;
-    let currentZoneKey = '';
-    let currentStoreId = '';
-    let currentBatchHub = null;
-    let selectedStoreId = null;
-    const detailMaps = new Map();
+    const mapInstances = new Map();
 
-    // --- Assigned drivers collision map + pick/drop ---
-    let assignedRoutes = ALL_BATCHES
-        .filter(b => ['assigned', 'accepted'].includes(b.status) && b.driver)
-        .map(b => JSON.parse(JSON.stringify(b)));
-    let assignedMap = null;
-    let pickedOrder = null; // { order, fromBatchId }
-    let moveTargetBatchId = null;
-
-    function getVisibleAssignedRoutes() {
-        const storeId = document.getElementById('collision-store-filter').value;
-        return assignedRoutes.filter(b => {
-            if (!storeId) return true;
-            return b.store_id === storeId;
-        });
-    }
-
-    function renumberStops(orders) {
-        return orders.map((o, i) => ({ ...o, stop: i + 1 }));
-    }
-
-    function reorderStop(batchId, orderId, direction) {
-        const batch = assignedRoutes.find(b => b.id === batchId);
-        if (!batch || !batch.orders?.length) return;
-
-        const idx = batch.orders.findIndex(o => o.id === orderId);
-        if (idx < 0) return;
-
-        const swapWith = direction === 'up' ? idx - 1 : idx + 1;
-        if (swapWith < 0 || swapWith >= batch.orders.length) return;
-
-        const orders = [...batch.orders];
-        [orders[idx], orders[swapWith]] = [orders[swapWith], orders[idx]];
-        batch.orders = renumberStops(orders);
-
-        syncBatchCardOrders(batch);
-        refreshAssignedMap();
-        renderCollisionDriverList();
-
-        // Keep the same driver card highlighted
-        const card = document.querySelector(`.collision-driver-card[data-batch-id="${batchId}"]`);
-        card?.classList.add('active');
-    }
-
-    function renderCollisionDriverList() {
-        const list = document.getElementById('collision-driver-list');
-        const routes = getVisibleAssignedRoutes();
-        document.getElementById('collision-driver-count').textContent =
-            `${routes.length} driver${routes.length === 1 ? '' : 's'}`;
-
-        if (!routes.length) {
-            list.innerHTML = '<div class="text-muted text-center py-4">No assigned drivers waiting to start for this store.</div>';
-            return;
-        }
-
-        list.innerHTML = routes.map((batch, idx) => {
-            const color = BATCH_COLORS[idx % BATCH_COLORS.length];
-            const avatar = batch.driver?.avatar || '1.png';
-            const total = (batch.orders || []).length;
-            const ordersHtml = (batch.orders || []).map((order, oIdx) => `
-                <div class="collision-order-row ${pickedOrder?.order?.id === order.id ? 'picked' : ''}"
-                     data-order-id="${order.id}" data-batch-id="${batch.id}" draggable="true">
-                    <span class="stop-badge" style="background:${color};width:22px;height:22px;font-size:0.7rem;">${order.stop}</span>
-                    <div class="flex-grow-1 min-w-0">
-                        <div class="fw-semibold text-body text-truncate">${order.locality || order.customer}</div>
-                        <small class="text-muted">${order.id}</small>
-                    </div>
-                    <div class="stop-reorder-btns">
-                        <button type="button" class="btn-reorder-stop" data-dir="up" data-order-id="${order.id}" data-batch-id="${batch.id}" title="Move earlier in route" ${oIdx === 0 ? 'disabled' : ''}>
-                            <i class="bx bx-chevron-up"></i>
-                        </button>
-                        <button type="button" class="btn-reorder-stop" data-dir="down" data-order-id="${order.id}" data-batch-id="${batch.id}" title="Move later in route" ${oIdx === total - 1 ? 'disabled' : ''}>
-                            <i class="bx bx-chevron-down"></i>
-                        </button>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-link p-0 text-muted btn-pick-order" title="Move to another driver" style="font-size:1rem;">
-                        <i class="bx bx-transfer"></i>
-                    </button>
-                </div>`).join('');
-
-            const dropHtml = pickedOrder && pickedOrder.fromBatchId !== batch.id
-                ? `<div class="collision-drop-target mt-2" data-drop-batch="${batch.id}">
-                        Drop here → ${batch.driver.name}
-                   </div>`
-                : '';
-
-            return `
-            <div class="collision-driver-card" data-batch-id="${batch.id}" data-batch-idx="${idx}">
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                    <div class="avatar avatar-xs" style="width:28px;height:28px;">
-                        <img src="${AVATAR_BASE}/${avatar}" class="rounded-circle" alt="">
-                    </div>
-                    <div class="flex-grow-1 min-w-0">
-                        <div class="fw-bold text-body text-truncate">${batch.driver.name}</div>
-                        <small class="text-muted">${batch.id} · ${batch.stops} stops · ${batch.status === 'accepted' ? 'Accepted' : 'Assigned'}</small>
-                    </div>
-                </div>
-                <div class="d-flex flex-column gap-1 collision-orders-list" data-batch-id="${batch.id}">${ordersHtml}</div>
-                ${dropHtml}
-            </div>`;
-        }).join('');
-    }
-
-    function openMoveModal(order, fromBatch) {
-        pickedOrder = { order: { ...order }, fromBatchId: fromBatch.id };
-        moveTargetBatchId = null;
-        document.getElementById('move-order-summary').textContent =
-            `${order.id} · ${order.customer || ''} (from ${fromBatch.driver?.name || fromBatch.id})`;
-
-        const targets = getVisibleAssignedRoutes().filter(b => b.id !== fromBatch.id);
-        const list = document.getElementById('move-target-list');
-        if (!targets.length) {
-            list.innerHTML = '<div class="text-muted text-center py-3">No other assigned drivers available to receive this order.</div>';
-            document.getElementById('confirm-move-order').disabled = true;
-        } else {
-            list.innerHTML = targets.map(b => `
-                <div class="driver-pick-card move-target-card" data-batch-id="${b.id}">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="avatar" style="width:40px;height:40px;">
-                            <img src="${AVATAR_BASE}/${b.driver.avatar || '1.png'}" class="rounded-circle" alt="">
-                        </div>
-                        <div class="flex-grow-1">
-                            <div class="fw-bold text-body">${b.driver.name}</div>
-                            <small class="text-muted">${b.id} · ${b.orders.length} stops · ${b.route_label || b.zone}</small>
-                        </div>
-                        <div class="driver-pick-check"><i class="bx bx-check" style="font-size:0.85rem;"></i></div>
-                    </div>
-                </div>`).join('');
-            document.getElementById('confirm-move-order').disabled = true;
-        }
-
-        document.getElementById('collision-picked-bar').classList.remove('d-none');
-        document.getElementById('collision-picked-text').innerHTML =
-            `<i class="bx bx-package me-1"></i> Picked <strong>${order.id}</strong> from <strong>${fromBatch.driver?.name}</strong> — select a driver to drop onto.`;
-        renderCollisionDriverList();
-        moveModal.show();
-    }
-
-    function clearPick() {
-        pickedOrder = null;
-        moveTargetBatchId = null;
-        document.getElementById('collision-picked-bar').classList.add('d-none');
-        document.getElementById('confirm-move-order').disabled = true;
-        renderCollisionDriverList();
-    }
-
-    function moveOrderToBatch(toBatchId) {
-        if (!pickedOrder || !toBatchId || pickedOrder.fromBatchId === toBatchId) return;
-
-        const from = assignedRoutes.find(b => b.id === pickedOrder.fromBatchId);
-        const to = assignedRoutes.find(b => b.id === toBatchId);
-        if (!from || !to) return;
-
-        const idx = from.orders.findIndex(o => o.id === pickedOrder.order.id);
-        if (idx < 0) return;
-
-        const [order] = from.orders.splice(idx, 1);
-        order.delivery = to.status === 'accepted' ? 'Accepted' : 'Assigned';
-        to.orders.push(order);
-
-        from.orders = renumberStops(from.orders);
-        to.orders = renumberStops(to.orders);
-        from.stops = from.orders.length;
-        to.stops = to.orders.length;
-        from.value = Math.round(from.orders.reduce((s, o) => s + (o.value || 0), 0) * 100) / 100;
-        to.value = Math.round(to.orders.reduce((s, o) => s + (o.value || 0), 0) * 100) / 100;
-
-        // Sync list cards if present
-        syncBatchCardOrders(from);
-        syncBatchCardOrders(to);
-
-        clearPick();
-        moveModal.hide();
-        refreshAssignedMap();
-        renderCollisionDriverList();
-
-        const toast = document.createElement('div');
-        toast.className = 'alert alert-success mb-3';
-        toast.style.cssText = 'border-radius:10px;font-size:0.88rem;';
-        toast.innerHTML = `<i class="bx bx-check-circle me-1"></i> Moved <strong>${order.id}</strong> to <strong>${to.driver.name}</strong>. Routes updated.`;
-        const panel = document.getElementById('assigned-drivers-panel');
-        panel.parentElement.insertBefore(toast, panel);
-        setTimeout(() => toast.remove(), 4000);
-    }
-
-    function syncBatchCardOrders(batch) {
-        const card = document.querySelector(`.batch-card[data-batch-id="${batch.id}"]`);
-        if (!card) return;
-        card.dataset.batchMap = JSON.stringify({
-            hub: batch.hub || null,
-            batch: {
-                id: batch.id,
-                route_label: batch.route_label || batch.zone,
-                zone: batch.zone,
-                orders: batch.orders,
-                suggested_driver: batch.suggested_driver || null,
-                driver: batch.driver,
-            },
-        });
-        // Force detail map rebuild next expand
-        const mapId = card.dataset.mapId;
-        if (mapId && detailMaps.has(mapId)) {
-            detailMaps.get(mapId).destroy?.();
-            detailMaps.delete(mapId);
-            if (card.classList.contains('expanded')) {
-                setTimeout(() => initBatchDetailMap(card), 50);
-            }
-        }
-        const metricStops = [...card.querySelectorAll('.metric-value')].find(el =>
-            /Stop/i.test(el.textContent)
-        );
-        if (metricStops) {
-            metricStops.textContent = `${batch.stops} Stops`;
-        }
-
-        // Refresh stop numbers + order in the expanded table
-        const tbody = card.querySelector('tbody');
-        if (tbody && batch.orders?.length) {
-            const rows = [...tbody.querySelectorAll('tr')];
-            const byId = {};
-            rows.forEach(row => {
-                const link = row.querySelector('a[href*="/operations/orders/"]');
-                if (!link) return;
-                const match = link.textContent.match(/#(ORD-[\w-]+)/);
-                if (match) byId[match[1]] = row;
+    function notifyError(message) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Unable to continue',
+                text: message || 'Something went wrong.',
+                confirmButtonText: 'OK',
+                customClass: { confirmButton: 'btn btn-primary-orange px-3 py-2' },
+                buttonsStyling: false,
             });
-            const frag = document.createDocumentFragment();
-            batch.orders.forEach(order => {
-                const row = byId[order.id];
-                if (!row) return;
-                const badge = row.querySelector('.stop-badge');
-                if (badge) badge.textContent = order.stop;
-                frag.appendChild(row);
+            return;
+        }
+        window.alert(message);
+    }
+
+    function notifySuccess(message) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Updated',
+                text: message,
+                timer: 1400,
+                showConfirmButton: false,
             });
-            if (frag.childNodes.length) {
-                tbody.innerHTML = '';
-                tbody.appendChild(frag);
-            }
+            return;
         }
     }
 
-    function refreshAssignedMap() {
-        const routes = getVisibleAssignedRoutes();
-        if (assignedMap) {
-            assignedMap.updateBatches(routes);
+    function notifyInfo(message) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'info',
+                title: 'Note',
+                text: message,
+                confirmButtonText: 'OK',
+                customClass: { confirmButton: 'btn btn-primary-orange px-3 py-2' },
+                buttonsStyling: false,
+            });
             return;
         }
-        if (!window.DeliverEaseBatchMap) return;
-        assignedMap = window.DeliverEaseBatchMap.createBatchRoutesMap('assigned-drivers-map', {
-            hub: routes[0]?.hub || null,
-            batches: routes,
-            drivers: BATCH_DRIVERS,
-            height: 480,
-            showAllBatches: true,
-            showAssignedDrivers: true,
-            showDriverOnFirst: false,
-            interactiveOrders: true,
-            legendTitle: 'Assigned drivers',
-            onOrderClick(order, batch) {
-                openMoveModal(order, batch);
-            },
-            onBatchSelect(idx) {
-                document.querySelectorAll('.collision-driver-card').forEach((c, i) => {
-                    c.classList.toggle('active', i === idx);
-                });
-            },
-        });
-    }
-
-    document.getElementById('collision-store-filter').addEventListener('change', () => {
-        if (assignedMap) {
-            assignedMap.destroy();
-            assignedMap = null;
-        }
-        clearPick();
-        refreshAssignedMap();
-        renderCollisionDriverList();
-    });
-
-    document.getElementById('btn-scroll-collision').addEventListener('click', () => {
-        document.getElementById('assigned-drivers-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        setTimeout(() => assignedMap?.invalidateSize(), 300);
-    });
-
-    document.getElementById('collision-cancel-pick').addEventListener('click', clearPick);
-
-    document.getElementById('collision-driver-list').addEventListener('click', (e) => {
-        const reorderBtn = e.target.closest('.btn-reorder-stop');
-        if (reorderBtn && !reorderBtn.disabled) {
-            e.stopPropagation();
-            reorderStop(reorderBtn.dataset.batchId, reorderBtn.dataset.orderId, reorderBtn.dataset.dir);
-            return;
-        }
-
-        const drop = e.target.closest('.collision-drop-target');
-        if (drop && pickedOrder) {
-            moveOrderToBatch(drop.dataset.dropBatch);
-            return;
-        }
-
-        // Only transfer icon opens move-to-driver modal (not the whole row)
-        const pickBtn = e.target.closest('.btn-pick-order');
-        if (pickBtn) {
-            e.stopPropagation();
-            const row = pickBtn.closest('.collision-order-row');
-            if (!row) return;
-            const batch = assignedRoutes.find(b => b.id === row.dataset.batchId);
-            const order = batch?.orders?.find(o => o.id === row.dataset.orderId);
-            if (batch && order) openMoveModal(order, batch);
-            return;
-        }
-
-        const card = e.target.closest('.collision-driver-card');
-        if (card && assignedMap) {
-            const idx = parseInt(card.dataset.batchIdx, 10);
-            if (!Number.isNaN(idx)) assignedMap.highlight(idx);
-            document.querySelectorAll('.collision-driver-card').forEach(c => c.classList.remove('active'));
-            card.classList.add('active');
-        }
-    });
-
-    // Drag-and-drop to reorder stops within the same driver
-    let dragOrderId = null;
-    let dragBatchId = null;
-
-    document.getElementById('collision-driver-list').addEventListener('dragstart', (e) => {
-        const row = e.target.closest('.collision-order-row');
-        if (!row) return;
-        dragOrderId = row.dataset.orderId;
-        dragBatchId = row.dataset.batchId;
-        row.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', dragOrderId);
-    });
-
-    document.getElementById('collision-driver-list').addEventListener('dragend', (e) => {
-        e.target.closest('.collision-order-row')?.classList.remove('dragging');
-        document.querySelectorAll('.collision-order-row.drag-over').forEach(r => r.classList.remove('drag-over'));
-        dragOrderId = null;
-        dragBatchId = null;
-    });
-
-    document.getElementById('collision-driver-list').addEventListener('dragover', (e) => {
-        const row = e.target.closest('.collision-order-row');
-        if (!row || !dragOrderId) return;
-        if (row.dataset.batchId !== dragBatchId) return; // only reorder within same driver
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        document.querySelectorAll('.collision-order-row.drag-over').forEach(r => r.classList.remove('drag-over'));
-        row.classList.add('drag-over');
-    });
-
-    document.getElementById('collision-driver-list').addEventListener('drop', (e) => {
-        const row = e.target.closest('.collision-order-row');
-        if (!row || !dragOrderId || !dragBatchId) return;
-        e.preventDefault();
-        if (row.dataset.batchId !== dragBatchId) return;
-        if (row.dataset.orderId === dragOrderId) return;
-
-        const batch = assignedRoutes.find(b => b.id === dragBatchId);
-        if (!batch) return;
-
-        const fromIdx = batch.orders.findIndex(o => o.id === dragOrderId);
-        const toIdx = batch.orders.findIndex(o => o.id === row.dataset.orderId);
-        if (fromIdx < 0 || toIdx < 0) return;
-
-        const orders = [...batch.orders];
-        const [moved] = orders.splice(fromIdx, 1);
-        orders.splice(toIdx, 0, moved);
-        batch.orders = renumberStops(orders);
-
-        syncBatchCardOrders(batch);
-        refreshAssignedMap();
-        renderCollisionDriverList();
-        document.querySelector(`.collision-driver-card[data-batch-id="${dragBatchId}"]`)?.classList.add('active');
-    });
-
-    document.getElementById('move-target-list').addEventListener('click', (e) => {
-        const card = e.target.closest('.move-target-card');
-        if (!card) return;
-        document.querySelectorAll('.move-target-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        moveTargetBatchId = card.dataset.batchId;
-        document.getElementById('confirm-move-order').disabled = false;
-    });
-
-    document.getElementById('confirm-move-order').addEventListener('click', () => {
-        if (moveTargetBatchId) moveOrderToBatch(moveTargetBatchId);
-    });
-
-    // Init collision map after a short delay so Leaflet is ready
-    setTimeout(() => {
-        refreshAssignedMap();
-        renderCollisionDriverList();
-    }, 200);
-
-    function googleMapsUrl(hub, orders) {
-        if (!hub?.lat || !orders?.length) return '#';
-        const wps = orders
-            .filter(o => o.lat != null && o.lng != null)
-            .sort((a, b) => (a.stop || 0) - (b.stop || 0))
-            .map(o => `${o.lat},${o.lng}`);
-        if (!wps.length) return '#';
-        const origin = `${hub.lat},${hub.lng}`;
-        return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${origin}&waypoints=${wps.join('|')}&travelmode=driving`;
-    }
-
-    function initBatchDetailMap(card) {
-        if (!card || !window.DeliverEaseBatchMap) return;
-        const mapId = card.dataset.mapId;
-        if (!mapId || detailMaps.has(mapId)) {
-            detailMaps.get(mapId)?.invalidateSize();
-            return;
-        }
-        let payload;
-        try {
-            payload = JSON.parse(card.dataset.batchMap || '{}');
-        } catch (e) {
-            return;
-        }
-        if (!payload.hub || !payload.batch) return;
-
-        const instance = window.DeliverEaseBatchMap.createBatchRoutesMap(mapId, {
-            hub: payload.hub,
-            batches: [payload.batch],
-            drivers: BATCH_DRIVERS,
-            showAllBatches: false,
-            highlightIndex: 0,
-            showDriverOnFirst: !!payload.batch.suggested_driver,
-            height: 300,
-        });
-        detailMaps.set(mapId, instance);
-    }
-
-    function initVisibleBatchMaps() {
-        document.querySelectorAll('.batch-card.expanded').forEach(initBatchDetailMap);
-    }
-
-    function injectGeneratedBatches() {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('generated') !== '1') return;
-
-        const banner = document.getElementById('generated-banner');
-        banner.classList.remove('d-none');
-        document.getElementById('generated-banner-text').textContent =
-            'New batches saved to the database using distance-based route optimization. Assign store drivers to start delivery.';
-
-        // Clean the query string without reloading
-        if (window.history?.replaceState) {
-            const url = new URL(window.location.href);
-            url.searchParams.delete('generated');
-            window.history.replaceState({}, '', url.pathname + url.search);
-        }
-    }
-
-    function buildBatchCard(batch, expanded) {
-        const mapId = 'batch-map-' + batch.id.replace(/[^a-zA-Z0-9]/g, '-');
-        const mapPayload = {
-            hub: batch.hub || null,
-            batch: {
-                id: batch.id,
-                route_label: batch.route_label || batch.zone,
-                zone: batch.zone,
-                orders: batch.orders || [],
-                suggested_driver: batch.suggested_driver || null,
-            },
-        };
-        const gmaps = googleMapsUrl(batch.hub, batch.orders);
-
-        const div = document.createElement('div');
-        div.className = 'batch-card' + (expanded ? ' expanded' : '');
-        div.dataset.status = batch.status || 'pending';
-        div.dataset.search = (batch.id + ' ' + batch.zone + ' ' + batch.store).toLowerCase();
-        div.dataset.store = batch.store;
-        div.dataset.zone = batch.zone;
-        div.dataset.zoneKey = batch.zone_key || '';
-        div.dataset.batchId = batch.id;
-        div.dataset.storeId = batch.store_id || '';
-        div.dataset.mapId = mapId;
-        div.dataset.batchMap = JSON.stringify(mapPayload);
-        if (batch.hub) {
-            div.dataset.hubLat = batch.hub.lat;
-            div.dataset.hubLng = batch.hub.lng;
-        }
-
-        const ordersHtml = (batch.orders || []).map(order => {
-            const chipClass = DELIVERY_CHIP_CLASS[order.delivery] || 'chip-waiting';
-            const detailUrl = `{{ url('/operations/orders') }}/${order.id}?from=batch`;
-            return `<tr class="batch-order-row" style="cursor:pointer;" onclick="window.location='${detailUrl}'">
-                <td><span class="stop-badge">${order.stop}</span></td>
-                <td><a href="${detailUrl}" class="fw-semibold text-decoration-none" style="color:#ff7a00;" onclick="event.stopPropagation();">#${order.id}</a>
-                    <small class="text-muted d-block">${order.customer}</small></td>
-                <td class="text-muted" style="max-width:180px;">${order.address}</td>
-                <td class="fw-semibold">$${Number(order.value).toFixed(2)}</td>
-                <td>${order.payment}</td>
-                <td><span class="status-chip ${chipClass}"><span class="dot"></span>${order.delivery}</span></td>
-                <td class="text-end"><a href="${detailUrl}" class="btn btn-sm btn-outline-secondary" style="border-radius:6px;font-size:0.75rem;" onclick="event.stopPropagation();">Details</a></td>
-            </tr>`;
-        }).join('');
-
-        const suggested = batch.suggested_driver
-            ? `<small class="text-muted d-block mt-1" style="font-size:0.78rem;"><i class="bx bx-user"></i> Suggested: ${batch.suggested_driver.name} (${batch.suggested_driver.reason})</small>`
-            : '';
-
-        div.innerHTML = `
-            <div class="p-3 d-flex align-items-center gap-3 flex-wrap batch-summary" style="cursor:pointer;">
-                <div class="batch-icon" style="background:rgba(255,171,0,0.12);color:#ffab00;"><i class="bx bx-package"></i></div>
-                <div class="flex-grow-1 min-w-0" style="min-width:180px;">
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <span class="fw-bold text-body">Batch #${batch.id}</span>
-                        <span class="status-chip chip-waiting"><span class="dot"></span>Waiting</span>
-                        <span class="badge bg-label-success rounded-pill" style="font-size:0.65rem;">New</span>
-                    </div>
-                    <small class="text-muted"><i class="bx bx-map-pin"></i> ${batch.zone} · ${batch.store}</small>
-                    ${suggested}
-                </div>
-                <div class="d-flex align-items-center gap-4 flex-wrap">
-                    <div class="text-center"><div class="metric-label">Orders</div><div class="metric-value">${batch.stops} Stops</div></div>
-                    <div class="text-center"><div class="metric-label">Distance</div><div class="metric-value">${batch.distance}</div></div>
-                    <div class="text-center"><div class="metric-label">Est. Time</div><div class="metric-value">${batch.est_time}</div></div>
-                    <div class="text-center"><div class="metric-label">Total Value</div><div class="metric-value">$${Number(batch.value).toFixed(2)}</div></div>
-                </div>
-                <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
-                    <button type="button" class="btn btn-sm btn-outline-secondary btn-view-details" style="border-radius:6px;">View Details</button>
-                    <button type="button" class="btn btn-sm btn-primary-orange btn-assign-batch" style="border-radius:6px;">Assign Driver</button>
-                    <button type="button" class="btn btn-sm btn-icon btn-text-secondary toggle-batch"><i class="bx bx-chevron-down chevron-icon" style="font-size:1.25rem;"></i></button>
-                </div>
-            </div>
-            <div class="batch-detail px-3 pb-3">
-                <div class="row g-3 pt-1">
-                    <div class="col-lg-7">
-                        <h6 class="fw-bold text-body mb-3">Orders in Batch</h6>
-                        <div class="table-responsive border rounded-3" style="border-color:#e0e2e7!important;">
-                            <table class="table table-sm mb-0" style="font-size:0.85rem;">
-                                <thead class="table-light"><tr><th>Stop</th><th>Order & Customer</th><th>Address</th><th>Value</th><th>Payment</th><th>Delivery</th><th class="text-end">Action</th></tr></thead>
-                                <tbody>${ordersHtml}</tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="col-lg-5">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 class="fw-bold text-body mb-0">Route Map</h6>
-                            <a href="${gmaps}" target="_blank" rel="noopener" class="text-decoration-none" style="color:#ff7a00;font-size:0.85rem;font-weight:600;${gmaps === '#' ? 'pointer-events:none;opacity:0.5;' : ''}">
-                                Open in Maps <i class="bx bx-link-external"></i>
-                            </a>
-                        </div>
-                        <div id="${mapId}" class="batch-detail-map-wrap batch-routes-map-wrap mb-2"></div>
-                        <div class="d-flex justify-content-between" style="font-size:0.82rem;">
-                            <small class="text-muted"><i class="bx bx-trip"></i> Hub → Stop 1: ${batch.route.hub_to_first}</small>
-                            <small class="text-muted"><i class="bx bx-undo"></i> Return: ${batch.route.return}</small>
-                        </div>
-                        <small class="text-muted d-block mt-2">Grouped by lowest extra travel distance — border locations assigned to the most efficient route.</small>
-                    </div>
-                </div>
-            </div>`;
-        if (expanded) {
-            setTimeout(() => initBatchDetailMap(div), 50);
-        }
-        return div;
+        window.alert(message);
     }
 
     if (new URLSearchParams(window.location.search).get('generated') === '1') {
-        injectGeneratedBatches();
-    }
-    initVisibleBatchMaps();
-
-    document.querySelectorAll('.batch-tab').forEach(btn => {
-        btn.addEventListener('click', function () {
-            document.querySelectorAll('.batch-tab').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            activeStatus = this.dataset.status;
-            filterBatches();
-        });
-    });
-
-    ['search-batches', 'filter-store', 'filter-zone'].forEach(id => {
-        document.getElementById(id).addEventListener('input', filterBatches);
-        document.getElementById(id).addEventListener('change', filterBatches);
-    });
-
-    function filterBatches() {
-        const q = (document.getElementById('search-batches').value || '').toLowerCase();
-        const store = document.getElementById('filter-store').value;
-        const zone = document.getElementById('filter-zone').value.toLowerCase();
-        let visible = 0;
-        document.querySelectorAll('.batch-card').forEach(card => {
-            const matchStatus = activeStatus === 'all' || card.dataset.status === activeStatus;
-            const matchSearch = !q || (card.dataset.search || '').includes(q);
-            const matchStore = !store || card.dataset.store === store;
-            const matchZone = !zone || (card.dataset.zone || '').toLowerCase().includes(zone);
-            const show = matchStatus && matchSearch && matchStore && matchZone;
-            card.style.display = show ? '' : 'none';
-            if (show) visible++;
-        });
-        document.getElementById('batch-showing').textContent = `Showing ${visible} batches`;
+        const banner = document.getElementById('generated-banner');
+        banner.classList.remove('d-none');
+        history.replaceState({}, '', window.location.pathname);
     }
 
-    function batchTargetPoint(card) {
-        if (card.dataset.hubLat && card.dataset.hubLng) {
-            return { lat: parseFloat(card.dataset.hubLat), lng: parseFloat(card.dataset.hubLng) };
+    function findBatchCard(batchId) {
+        return [...document.querySelectorAll('.child-batch-card')]
+            .find((c) => c.dataset.batchId === batchId) || null;
+    }
+
+    function destroyMap(el) {
+        if (!el?.id) return;
+        const inst = mapInstances.get(el.id);
+        if (inst) {
+            try { inst.destroy(); } catch (e) { /* ignore */ }
+            mapInstances.delete(el.id);
         }
-        return null;
+        el.innerHTML = '';
     }
 
-    function driverScore(driver, target, storeId) {
-        if (!target || driver.lat == null) return driver.load || 0;
-        const dist = window.DeliverEaseBatchGen
-            ? window.DeliverEaseBatchGen.roadKm({ lat: driver.lat, lng: driver.lng }, target)
-            : 0;
-        const storeMismatch = storeId && driver.store_id !== storeId ? 5 : 0;
-        return dist + storeMismatch + (driver.load || 0) * 0.3;
+    function refreshMap(el, multi = false) {
+        if (!el) return;
+        destroyMap(el);
+        initMap(el, multi);
+        setTimeout(() => mapInstances.get(el.id)?.invalidateSize?.(), 150);
+        setTimeout(() => mapInstances.get(el.id)?.invalidateSize?.(), 400);
     }
 
-    function storeDriversForBatch(card) {
-        const storeId = card.dataset.storeId || currentStoreId;
-        const target = batchTargetPoint(card);
-
-        return BATCH_DRIVERS
-            .filter(d => d.type === 'store' && d.status === 'available' && (!storeId || d.store_id === storeId))
-            .map(d => ({ driver: d, score: driverScore(d, target, storeId) }))
-            .sort((a, b) => a.score - b.score)
-            .map(x => x.driver);
+    function keepViewOn(el) {
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    function driverCardHtml(driver) {
-        return `
-            <div class="driver-pick-card" data-driver-id="${driver.id}" data-driver-name="${driver.name}" data-avatar="${driver.avatar}" data-search="${(driver.name + ' ' + driver.id + ' ' + (driver.vehicle || '')).toLowerCase()}">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="avatar" style="width: 40px; height: 40px;">
-                        <img src="${AVATAR_BASE}/${driver.avatar}" class="rounded-circle" alt="">
-                    </div>
-                    <div class="flex-grow-1 min-w-0">
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <span class="fw-bold text-body">${driver.name}</span>
-                            <span class="badge bg-label-warning rounded-pill" style="font-size: 0.65rem;">Store</span>
-                        </div>
-                        <small class="text-muted">ID: ${driver.id} · ${driver.vehicle}${driver.store ? ' · ' + driver.store : ''}</small>
-                        <div class="d-flex gap-3 mt-1" style="font-size: 0.8rem;">
-                            <span><span class="text-muted">Load:</span> <strong>${driver.load}</strong></span>
-                            <span><span class="text-muted">Dist:</span> <strong>${driver.distance}</strong> (${driver.eta})</span>
-                        </div>
-                    </div>
-                    <div class="driver-pick-check"><i class="bx bx-check" style="font-size: 0.85rem;"></i></div>
-                </div>
-            </div>`;
-    }
+    function openMoveModal(orderCode, fromBatchId, groupCard) {
+        if (!orderCode || !fromBatchId || !groupCard) return;
 
-    function renderDriverLists() {
-        const card = currentBatchCard;
-        const storeDrivers = card ? storeDriversForBatch(card) : [];
-        const storeList = document.getElementById('store-driver-list');
-
-        storeList.innerHTML = storeDrivers.map(d => driverCardHtml(d)).join('');
-        document.getElementById('store-count-badge').textContent = storeDrivers.length;
-        document.getElementById('store-empty').classList.toggle('d-none', storeDrivers.length > 0);
-
-        selectedStoreId = null;
-        updateConfirmBtn();
-        applyDriverSearch();
-    }
-
-    function updateConfirmBtn() {
-        document.getElementById('confirm-batch-assign').disabled = !selectedStoreId;
-    }
-
-    function applyDriverSearch() {
-        const q = (document.getElementById('search-batch-drivers').value || '').toLowerCase();
-        document.querySelectorAll('#store-driver-list .driver-pick-card').forEach(card => {
-            card.style.display = !q || (card.dataset.search || '').includes(q) ? '' : 'none';
-        });
-    }
-
-    document.getElementById('search-batch-drivers').addEventListener('input', applyDriverSearch);
-
-    document.getElementById('store-driver-list').addEventListener('click', function (e) {
-        const card = e.target.closest('.driver-pick-card');
-        if (!card) return;
-        this.querySelectorAll('.driver-pick-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        selectedStoreId = card.dataset.driverId;
-        updateConfirmBtn();
-    });
-
-    document.getElementById('batch-list').addEventListener('click', function (e) {
-        const card = e.target.closest('.batch-card');
-        if (!card) return;
-
-        if (e.target.closest('.btn-assign-batch')) {
-            currentBatchCard = card;
-            currentZoneKey = card.dataset.zoneKey || '';
-            currentStoreId = card.dataset.storeId || '';
-            currentBatchHub = batchTargetPoint(card);
-            document.getElementById('assign-batch-id').textContent = card.dataset.batchId || '';
-            document.getElementById('assign-zone-label').textContent = card.dataset.store || card.dataset.zone || '';
-            document.getElementById('search-batch-drivers').value = '';
-            renderDriverLists();
-            assignModal.show();
+        const sourceCard = [...groupCard.querySelectorAll('.child-batch-card')]
+            .find((c) => c.dataset.batchId === fromBatchId);
+        if (sourceCard && sourceCard.dataset.editable !== '1') {
+            notifyInfo('This batch has started delivery and is locked.');
             return;
         }
 
-        if (e.target.closest('.toggle-batch') || e.target.closest('.batch-summary') || e.target.closest('.btn-view-details')) {
-            if (e.target.closest('a') || e.target.closest('.btn-assign-batch')) return;
-            card.classList.toggle('expanded');
+        const siblings = [...groupCard.querySelectorAll('.child-batch-card')]
+            .filter((c) => c.dataset.editable === '1' && c.dataset.batchId !== fromBatchId)
+            .map((c) => {
+                const title = c.querySelector('.fw-bold.text-body')?.textContent?.trim() || c.dataset.batchId;
+                const driver = (c.querySelector('small.text-muted')?.textContent || '').split('·').pop()?.trim();
+                return {
+                    id: c.dataset.batchId,
+                    label: driver ? `${driver} · ${c.dataset.batchId}` : title,
+                };
+            });
+
+        if (!siblings.length) {
+            notifyInfo('No other unlocked driver batches in this group to move to.');
+            return;
+        }
+
+        moveOrderCode = orderCode;
+        moveFromBatch = fromBatchId;
+        const select = document.getElementById('move-target-batch');
+        select.innerHTML = '<option value="">Select target batch…</option>' +
+            siblings.map((s) => `<option value="${s.id}">${s.label}</option>`).join('');
+        document.getElementById('confirm-move-order').disabled = true;
+        document.getElementById('move-order-hint').textContent =
+            `Move ${moveOrderCode} from ${moveFromBatch} to another unlocked driver batch in this group.`;
+        moveModal.show();
+    }
+
+    function initMap(el, multi = false) {
+        if (!el || !window.DeliverEaseBatchMap || mapInstances.has(el.id)) return;
+        try {
+            const payload = JSON.parse(el.dataset.mapPayload || '{}');
+            const groupCard = el.closest('.group-card');
+            const map = window.DeliverEaseBatchMap.createBatchRoutesMap(el.id, {
+                hub: payload.hub,
+                batches: multi ? (payload.batches || []) : (payload.batch ? [payload.batch] : []),
+                height: multi ? 360 : 240,
+                showDriverOnFirst: true,
+                legendTitle: multi ? 'Drivers' : 'Route',
+                interactiveOrders: multi,
+                onOrderClick(order, batch) {
+                    if (!multi || !order?.id || !batch?.id) return;
+                    openMoveModal(order.id, batch.id, groupCard);
+                },
+            });
+            mapInstances.set(el.id, map);
+            setTimeout(() => map?.invalidateSize?.(), 200);
+        } catch (err) { /* ignore */ }
+    }
+
+    function orderRowHtml(order, editable, batchId) {
+        const dClass = DELIVERY_CHIP[order.delivery] || 'chip-waiting';
+        const stopControls = editable ? `
+            <i class="bx bx-menu drag-handle" title="Drag to reorder"></i>
+            <span class="stop-badge">${order.stop}</span>
+            <div class="btn-group-vertical">
+                <button type="button" class="btn btn-sm btn-link p-0 text-muted btn-stop-up" title="Move stop up" style="line-height:1;"><i class="bx bx-chevron-up"></i></button>
+                <button type="button" class="btn btn-sm btn-link p-0 text-muted btn-stop-down" title="Move stop down" style="line-height:1;"><i class="bx bx-chevron-down"></i></button>
+            </div>` : `<span class="stop-badge">${order.stop}</span>`;
+        const moveBtn = editable ? `
+            <td>
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-move-order"
+                    data-order-code="${order.id}" data-from-batch="${batchId}"
+                    style="border-radius:8px;font-size:0.75rem;">Move</button>
+            </td>` : '';
+
+        return `<tr style="font-size:0.85rem;" data-order-code="${order.id}"
+            ${editable ? 'class="order-row-draggable" draggable="true"' : ''}>
+            <td>
+                <div class="d-flex align-items-center gap-1">
+                    ${stopControls}
+                </div>
+            </td>
+            <td class="fw-semibold">${order.id}</td>
+            <td>${order.customer || ''}</td>
+            <td class="text-muted">${order.locality || order.address || ''}</td>
+            <td><span class="status-chip ${dClass}"><span class="dot"></span>${order.delivery || '—'}</span></td>
+            ${moveBtn}
+        </tr>`;
+    }
+
+    function applyBatchToCard(batch) {
+        const card = findBatchCard(batch.id);
+        if (!card || !batch) return card;
+
+        const editable = !!batch.editable;
+        card.dataset.editable = editable ? '1' : '0';
+        card.dataset.status = batch.status || card.dataset.status;
+
+        const title = card.querySelector('.child-header .fw-bold.text-body');
+        if (title) {
+            title.textContent = `${batch.id} · ${batch.route_label || batch.zone || ''}`.trim();
+        }
+        const meta = card.querySelector('.child-header small.text-muted');
+        if (meta) {
+            const driverBit = batch.driver?.name ? ` · ${batch.driver.name}` : '';
+            meta.textContent = `${batch.stops || 0} stops · ${batch.distance || '—'} · ${batch.est_time || '—'}${driverBit}`;
+        }
+
+        const reassignBtn = card.querySelector('.btn-reassign');
+        const lockedBadge = card.querySelector('.badge.bg-label-secondary');
+        if (editable) {
+            if (reassignBtn) {
+                reassignBtn.textContent = batch.driver ? 'Reassign Driver' : 'Assign Driver';
+            }
+            lockedBadge?.remove();
+        }
+
+        const tbody = card.querySelector('.batch-orders-table tbody');
+        if (tbody) {
+            const orders = [...(batch.orders || [])].sort((a, b) => (a.stop || 0) - (b.stop || 0));
+            tbody.innerHTML = orders
+                .map((o) => orderRowHtml(o, editable, batch.id))
+                .join('');
+        }
+
+        const mapEl = card.querySelector('[id^="batch-map-"]');
+        if (mapEl) {
+            const hub = batch.hub || JSON.parse(mapEl.dataset.mapPayload || '{}').hub || null;
+            const orders = [...(batch.orders || [])].sort((a, b) => (a.stop || 0) - (b.stop || 0));
+            mapEl.dataset.mapPayload = JSON.stringify({
+                hub,
+                batch: {
+                    id: batch.id,
+                    route_label: batch.route_label || batch.zone,
+                    orders,
+                    driver: batch.driver || null,
+                    route: batch.route || null,
+                    editable,
+                    status: batch.status,
+                },
+            });
             if (card.classList.contains('expanded')) {
-                setTimeout(() => initBatchDetailMap(card), 80);
+                refreshMap(mapEl, false);
             }
         }
+
+        return card;
+    }
+
+    function rebuildGroupCombinedMap(groupCard) {
+        if (!groupCard) return;
+        const mapEl = groupCard.querySelector('.group-combined-map');
+        if (!mapEl) return;
+
+        const prev = JSON.parse(mapEl.dataset.mapPayload || '{}');
+        const batches = [...groupCard.querySelectorAll('.child-batch-card')].map((card) => {
+            const childMap = card.querySelector('[id^="batch-map-"]');
+            const payload = JSON.parse(childMap?.dataset.mapPayload || '{}');
+            const batch = payload.batch || { id: card.dataset.batchId, orders: [] };
+            return {
+                ...batch,
+                editable: card.dataset.editable === '1',
+                status: card.dataset.status,
+                hub: payload.hub || prev.hub || null,
+            };
+        });
+
+        mapEl.dataset.mapPayload = JSON.stringify({
+            hub: prev.hub || batches.find((b) => b.hub)?.hub || null,
+            batches,
+        });
+
+        if (groupCard.classList.contains('expanded')) {
+            refreshMap(mapEl, true);
+        }
+    }
+
+    document.querySelectorAll('.group-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const card = header.closest('.group-card');
+            card?.classList.toggle('expanded');
+            if (card?.classList.contains('expanded')) {
+                const mapEl = card.querySelector('.group-combined-map');
+                initMap(mapEl, true);
+            }
+        });
     });
 
-    document.getElementById('confirm-batch-assign').addEventListener('click', async function () {
-        if (!currentBatchCard || !selectedStoreId) return;
+    document.querySelectorAll('.child-header').forEach(header => {
+        header.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-reassign')) return;
+            const card = header.closest('.child-batch-card');
+            card?.classList.toggle('expanded');
+            if (card?.classList.contains('expanded')) {
+                initMap(card.querySelector('[id^="batch-map-"]'), false);
+            }
+        });
+    });
 
-        const batchCode = currentBatchCard.dataset.batchId;
+    function matchesStatusFilter(statusesCsv, filter) {
+        const statuses = (statusesCsv || '').split(',').filter(Boolean);
+        if (filter === 'all') return true;
+        if (filter === 'active') {
+            return statuses.some(s => ['pending', 'assigned', 'in_progress'].includes(s));
+        }
+        return statuses.includes(filter);
+    }
+
+    function applyFilters() {
+        const q = (document.getElementById('search-batches').value || '').toLowerCase();
+        const storeId = document.getElementById('filter-store').value;
+        const status = document.querySelector('.batch-tab.active')?.dataset.status || 'active';
+
+        document.querySelectorAll('.store-block').forEach(storeEl => {
+            let anyGroupVisible = false;
+            storeEl.querySelectorAll('.group-block').forEach(groupEl => {
+                const matchStore = !storeId || groupEl.dataset.storeId === storeId;
+                const matchStatus = matchesStatusFilter(groupEl.dataset.statuses, status);
+                const matchQ = !q || (groupEl.dataset.search || '').includes(q) || (storeEl.dataset.search || '').includes(q);
+                const show = matchStore && matchStatus && matchQ;
+                groupEl.style.display = show ? '' : 'none';
+                if (show) anyGroupVisible = true;
+            });
+            const storeMatch = !storeId || storeEl.dataset.storeId === storeId;
+            storeEl.style.display = storeMatch && anyGroupVisible ? '' : 'none';
+        });
+    }
+
+    document.getElementById('search-batches').addEventListener('input', applyFilters);
+    document.getElementById('filter-store').addEventListener('change', applyFilters);
+    document.querySelectorAll('.batch-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.batch-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            applyFilters();
+        });
+    });
+    applyFilters();
+
+    const firstGroup = document.querySelector('.group-card');
+    if (firstGroup) {
+        firstGroup.classList.add('expanded');
+        initMap(firstGroup.querySelector('.group-combined-map'), true);
+    }
+
+    document.querySelectorAll('.btn-reassign').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            assignBatchId = btn.dataset.batchId;
+            assignStoreId = btn.dataset.storeId;
+            selectedDriverCode = null;
+            document.getElementById('confirm-assign-driver').disabled = true;
+
+            const drivers = BATCH_DRIVERS.filter(d =>
+                d.store_id === assignStoreId &&
+                (d.available === true || d.status === 'available')
+            );
+
+            const list = document.getElementById('assign-driver-list');
+            if (!drivers.length) {
+                list.innerHTML = '<div class="text-muted">No available store drivers for this store.</div>';
+            } else {
+                list.innerHTML = drivers.map(d => `
+                    <div class="driver-pick-card d-flex align-items-center gap-2" data-driver-code="${d.id}">
+                        <div class="driver-pick-check"><i class="bx bx-check" style="font-size:0.85rem;"></i></div>
+                        <img src="${AVATAR_BASE}/${d.avatar || '1.png'}" class="rounded-circle" width="36" height="36" alt="">
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-semibold text-body text-truncate">${d.name}</div>
+                            <small class="text-muted">${d.vehicle || 'Vehicle'} · ${d.id}</small>
+                        </div>
+                    </div>
+                `).join('');
+                list.querySelectorAll('.driver-pick-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        list.querySelectorAll('.driver-pick-card').forEach(c => c.classList.remove('selected'));
+                        card.classList.add('selected');
+                        selectedDriverCode = card.dataset.driverCode;
+                        document.getElementById('confirm-assign-driver').disabled = false;
+                    });
+                });
+            }
+
+            document.getElementById('assign-modal-hint').textContent =
+                `Reassign ${assignBatchId} to another available store driver.`;
+            assignModal.show();
+        });
+    });
+
+    document.getElementById('confirm-assign-driver').addEventListener('click', async function () {
+        if (!assignBatchId || !selectedDriverCode) return;
         const btn = this;
         btn.disabled = true;
-
         try {
-            const res = await fetch(`{{ url('/operations/delivery-batches') }}/${encodeURIComponent(batchCode)}/assign`, {
+            const res = await fetch(`{{ url('/operations/delivery-batches') }}/${encodeURIComponent(assignBatchId)}/assign`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    'X-CSRF-TOKEN': CSRF,
                 },
-                body: JSON.stringify({ driver_code: selectedStoreId }),
+                body: JSON.stringify({ driver_code: selectedDriverCode }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                throw new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || 'Assignment failed.');
+                throw new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || 'Assign failed.');
             }
-
-            const pick = document.querySelector(`#store-driver-list .driver-pick-card[data-driver-id="${selectedStoreId}"]`);
-            const name = data.batch?.driver?.name || pick?.dataset.driverName || 'Driver';
-            const avatar = data.batch?.driver?.avatar || pick?.dataset.avatar || '1.png';
-            currentBatchCard.dataset.status = 'assigned';
-            const chip = currentBatchCard.querySelector('.status-chip');
-            if (chip) {
-                chip.className = 'status-chip chip-assigned';
-                chip.innerHTML = '<span class="dot"></span>Assigned';
-            }
-            const actions = currentBatchCard.querySelector('.btn-assign-batch')?.parentElement;
-            if (actions && !currentBatchCard.querySelector('.assigned-driver-chip')) {
-                const chipEl = document.createElement('div');
-                chipEl.className = 'd-flex align-items-center gap-2 me-2 assigned-driver-chip';
-                chipEl.innerHTML = `
-                    <div class="avatar avatar-xs" style="width: 28px; height: 28px;">
-                        <img src="${AVATAR_BASE}/${avatar}" class="rounded-circle" alt="">
-                    </div>
-                    <small class="fw-semibold text-body">${name}</small>`;
-                actions.insertBefore(chipEl, actions.firstChild);
-            }
-            currentBatchCard.querySelector('.btn-assign-batch')?.remove();
-
-            if (data.batch) {
-                assignedRoutes = assignedRoutes.filter(b => b.id !== data.batch.id);
-                assignedRoutes.push(data.batch);
-                refreshAssignedMap();
-                renderCollisionDriverList();
-            }
-
             assignModal.hide();
-            filterBatches();
+            const card = applyBatchToCard(data.batch);
+            const groupCard = card?.closest('.group-card');
+            rebuildGroupCombinedMap(groupCard);
+            keepViewOn(card || groupCard);
+            notifySuccess(data.message || 'Driver assigned.');
         } catch (err) {
-            alert(err.message || 'Assignment failed.');
+            notifyError(err.message || 'Assign failed.');
         } finally {
             btn.disabled = false;
-            updateConfirmBtn();
         }
     });
 
-    filterBatches();
+    document.getElementById('store-list').addEventListener('click', (e) => {
+        const moveBtn = e.target.closest('.btn-move-order');
+        if (moveBtn) {
+            e.stopPropagation();
+            const groupCard = moveBtn.closest('.group-card');
+            openMoveModal(moveBtn.dataset.orderCode, moveBtn.dataset.fromBatch, groupCard);
+            return;
+        }
+
+        const stopBtn = e.target.closest('.btn-stop-up, .btn-stop-down');
+        if (!stopBtn) return;
+        e.stopPropagation();
+
+        const row = stopBtn.closest('tr');
+        const tbody = row?.parentElement;
+        const batchCard = stopBtn.closest('.child-batch-card');
+        if (!row || !tbody || !batchCard) return;
+
+        if (stopBtn.classList.contains('btn-stop-up') && row.previousElementSibling) {
+            tbody.insertBefore(row, row.previousElementSibling);
+        } else if (stopBtn.classList.contains('btn-stop-down') && row.nextElementSibling) {
+            tbody.insertBefore(row.nextElementSibling, row);
+        } else {
+            return;
+        }
+
+        persistStopOrder(batchCard).catch((err) => {
+            notifyError(err.message || 'Reorder failed.');
+        });
+    });
+
+    // Drag-and-drop stop reordering within an editable batch.
+    let dragRow = null;
+    const storeList = document.getElementById('store-list');
+
+    storeList.addEventListener('dragstart', (e) => {
+        const row = e.target.closest('tr.order-row-draggable');
+        if (!row || row.closest('.child-batch-card')?.dataset.editable !== '1') return;
+        // Don't start a drag from action buttons.
+        if (e.target.closest('button, a, .btn-move-order')) {
+            e.preventDefault();
+            return;
+        }
+        dragRow = row;
+        row.classList.add('order-row-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', row.dataset.orderCode || '');
+    });
+
+    storeList.addEventListener('dragover', (e) => {
+        const row = e.target.closest('tr.order-row-draggable');
+        if (!dragRow || !row || row === dragRow) return;
+        if (row.parentElement !== dragRow.parentElement) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        row.classList.add('order-row-drag-over');
+        const rect = row.getBoundingClientRect();
+        const before = (e.clientY - rect.top) < rect.height / 2;
+        if (before) {
+            row.parentElement.insertBefore(dragRow, row);
+        } else {
+            row.parentElement.insertBefore(dragRow, row.nextElementSibling);
+        }
+    });
+
+    storeList.addEventListener('dragleave', (e) => {
+        const row = e.target.closest('tr.order-row-draggable');
+        row?.classList.remove('order-row-drag-over');
+    });
+
+    storeList.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const row = e.target.closest('tr.order-row-draggable');
+        row?.classList.remove('order-row-drag-over');
+    });
+
+    storeList.addEventListener('dragend', (e) => {
+        const row = dragRow || e.target.closest('tr.order-row-draggable');
+        document.querySelectorAll('.order-row-drag-over').forEach((r) => r.classList.remove('order-row-drag-over'));
+        row?.classList.remove('order-row-dragging');
+        const batchCard = row?.closest('.child-batch-card');
+        dragRow = null;
+        if (!batchCard) return;
+        persistStopOrder(batchCard).catch((err) => {
+            notifyError(err.message || 'Reorder failed.');
+        });
+    });
+
+    document.getElementById('move-target-batch').addEventListener('change', function () {
+        document.getElementById('confirm-move-order').disabled = !this.value;
+    });
+
+    document.getElementById('confirm-move-order').addEventListener('click', async function () {
+        const toBatch = document.getElementById('move-target-batch').value;
+        if (!moveOrderCode || !moveFromBatch || !toBatch) return;
+        const btn = this;
+        btn.disabled = true;
+        try {
+            const res = await fetch(@json(url('/operations/delivery-batches/move-order')), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': CSRF,
+                },
+                body: JSON.stringify({
+                    order_code: moveOrderCode,
+                    from_batch: moveFromBatch,
+                    to_batch: toBatch,
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || 'Move failed.');
+            }
+            moveModal.hide();
+
+            const fromCard = applyBatchToCard(data.from);
+            const toCard = applyBatchToCard(data.to);
+            // Keep both child details open so admin can verify.
+            fromCard?.classList.add('expanded');
+            toCard?.classList.add('expanded');
+            if (fromCard) initMap(fromCard.querySelector('[id^="batch-map-"]'), false);
+            if (toCard) initMap(toCard.querySelector('[id^="batch-map-"]'), false);
+
+            const groupCard = fromCard?.closest('.group-card') || toCard?.closest('.group-card');
+            groupCard?.classList.add('expanded');
+            rebuildGroupCombinedMap(groupCard);
+            keepViewOn(toCard || groupCard);
+            notifySuccess(data.message || 'Order moved.');
+        } catch (err) {
+            notifyError(err.message || 'Move failed.');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    async function persistStopOrder(batchCard) {
+        const batchId = batchCard.dataset.batchId;
+        const codes = [...batchCard.querySelectorAll('tbody tr[data-order-code]')]
+            .map(row => row.dataset.orderCode);
+        const res = await fetch(`{{ url('/operations/delivery-batches') }}/${encodeURIComponent(batchId)}/reorder-stops`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CSRF,
+            },
+            body: JSON.stringify({ order_codes: codes }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || 'Reorder failed.');
+        }
+
+        const card = applyBatchToCard(data.batch);
+        card?.classList.add('expanded');
+        const groupCard = card?.closest('.group-card');
+        groupCard?.classList.add('expanded');
+        rebuildGroupCombinedMap(groupCard);
+        keepViewOn(card || groupCard);
+        notifySuccess(data.message || 'Stop sequence updated.');
+    }
 });
 </script>
 @endsection

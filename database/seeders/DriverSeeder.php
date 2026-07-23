@@ -160,6 +160,10 @@ class DriverSeeder extends Seeder
                 'assigned_at' => now(),
             ]
         );
+
+        $driver->update([
+            'driver_type' => $storeId ? Driver::TYPE_STORE : Driver::TYPE_THIRD_PARTY,
+        ]);
     }
 
     private function uniqueMobile(string $mobile): string

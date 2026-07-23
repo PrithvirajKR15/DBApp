@@ -251,18 +251,23 @@
                             }).addTo(state.map);
 
                             const driverName = batch.driver?.name || 'Unassigned';
-                            const moveHint = interactiveOrders
-                                ? `<br><button type="button" class="batch-map-move-btn" data-order-id="${order.id}" data-batch-id="${batch.id}">Move to another driver</button>`
-                                : '';
-                            marker.bindPopup(
+                            const canMove = interactiveOrders && batch.editable !== false;
+                            const popupHtml =
                                 `<strong>Stop ${order.stop}</strong> · ${driverName}<br>
                                 ${order.customer || ''} · <span style="color:#64748b">${order.id || ''}</span><br>
-                                <span style="color:#64748b">${order.locality || order.address || ''}</span>${moveHint}`
-                            );
+                                <span style="color:#64748b">${order.locality || order.address || ''}</span>` +
+                                (canMove
+                                    ? `<br><button type="button" class="batch-map-move-btn" data-order-id="${order.id}" data-batch-id="${batch.id}">Move to another driver</button>`
+                                    : (interactiveOrders
+                                        ? `<br><span style="color:#8592a3;font-size:0.78rem;">Locked — delivery started</span>`
+                                        : ''));
+
+                            marker.bindPopup(popupHtml);
 
                             marker.on('click', () => {
                                 setHighlight(batchIdx);
-                                if (typeof onOrderClick === 'function') {
+                                // Same as the old collision map: click a stop to start a move.
+                                if (canMove && typeof onOrderClick === 'function') {
                                     onOrderClick(order, batch, batchIdx);
                                 }
                             });

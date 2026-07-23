@@ -99,6 +99,10 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
         Route::post('/delivery-batches', [BatchController::class, 'store'])->name('operations-orders-batches.store');
         Route::post('/delivery-batches/settings', [BatchController::class, 'saveSettings'])->name('operations-orders-batches.settings.save');
         Route::post('/delivery-batches/{code}/assign', [BatchController::class, 'assign'])->name('operations-orders-batches.assign');
+        Route::post('/delivery-batches/move-order', [BatchController::class, 'moveOrder'])->name('operations-orders-batches.move-order');
+        Route::post('/delivery-batches/{code}/reorder-stops', [BatchController::class, 'reorderStops'])->name('operations-orders-batches.reorder-stops');
+        Route::post('/delivery-batches/{code}/complete', [BatchController::class, 'complete'])->name('operations-orders-batches.complete');
+        Route::post('/delivery-batches/{code}/cancel', [BatchController::class, 'cancel'])->name('operations-orders-batches.cancel');
 
         Route::get('/earnings', [EarningsController::class, 'index'])->name('operations-earnings');
         Route::get('/payouts', [PayoutController::class, 'index'])->name('operations-payouts');

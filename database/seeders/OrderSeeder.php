@@ -26,6 +26,8 @@ class OrderSeeder extends Seeder
 
             $driverCode = $o['driver']['id'] ?? null;
 
+            $delivery = $o['delivery'] ?? null;
+
             Order::updateOrCreate(
                 ['code' => $o['id']],
                 [
@@ -44,7 +46,8 @@ class OrderSeeder extends Seeder
                     'payment' => $o['payment'] ?? null,
                     'prep' => $o['prep'] ?? null,
                     'prep_pct' => (int) ($o['prep_pct'] ?? 0),
-                    'delivery' => $o['delivery'] ?? null,
+                    'delivery' => $delivery,
+                    'status' => $this->statusFromLegacyDelivery($delivery, in_array('batched', $views, true)),
                     'eta' => $o['driver']['eta'] ?? null,
                     'lat' => $o['lat'] ?? null,
                     'lng' => $o['lng'] ?? null,
@@ -159,6 +162,7 @@ class OrderSeeder extends Seeder
                     'prep' => $o['prep'] ?? null,
                     'prep_pct' => (int) ($o['prep_pct'] ?? 0),
                     'delivery' => $o['delivery'] ?? null,
+                    'status' => $this->statusFromLegacyDelivery($o['delivery'] ?? null, false),
                     'eta' => $o['eta'] ?? null,
                     'distance_km' => $o['distance_km'] ?? null,
                     'lat' => $o['lat'] ?? null,
@@ -167,5 +171,29 @@ class OrderSeeder extends Seeder
                 ]
             );
         }
+    }
+
+    /**
+     * Same legacy `delivery` -> canonical `status` mapping used by the
+     * 2026_07_23_000005 migration's backfill, applied to newly-seeded rows
+     * so demo data doesn't all look "pending" (and doesn't spuriously
+     * trigger the dispatch flow for orders that are actually already
+     * resolved).
+     */
+    private function statusFromLegacyDelivery(?string $delivery, bool $batched): string
+    {
+        $map = [
+            'waiting' => Order::STATUS_PENDING,
+            'assigned' => Order::STATUS_ASSIGNED,
+            'out' => Order::STATUS_ASSIGNED,
+            'transit' => Order::STATUS_ASSIGNED,
+            'delivered' => Order::STATUS_DELIVERED,
+            'failed' => Order::STATUS_CANCELLED,
+            'cancelled' => Order::STATUS_CANCELLED,
+        ];
+
+        $status = $map[strtolower((string) $delivery)] ?? Order::STATUS_PENDING;
+
+        return $status === Order::STATUS_PENDING && $batched ? Order::STATUS_BATCHED : $status;
     }
 }

@@ -7,7 +7,6 @@ use App\Services\BatchService;
 use App\Services\OperationsDataService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 class BatchController extends Controller
 {
@@ -39,23 +38,22 @@ class BatchController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $request->validate([
             'store_id' => ['required', 'string'],
             'store_name' => ['nullable', 'string'],
+            'overflow_count' => ['nullable', 'integer', 'min:0'],
             'batches' => ['required', 'array', 'min:1'],
             'batches.*.id' => ['required', 'string'],
+            'batches.*.driver_code' => ['required', 'string'],
             'batches.*.orders' => ['required', 'array', 'min:1'],
         ]);
 
-        try {
-            $created = $this->batches->storeGeneratedBatches($request->all());
-        } catch (ValidationException $e) {
-            throw $e;
-        }
+        $result = $this->batches->storeGeneratedBatches($request->all());
 
         return response()->json([
-            'message' => count($created) . ' batch(es) saved.',
-            'batches' => $created,
+            'message' => count($result['batches']).' batch(es) saved in group '.$result['group']['id'].'.',
+            'group' => $result['group'],
+            'batches' => $result['batches'],
         ]);
     }
 
@@ -69,6 +67,62 @@ class BatchController extends Controller
 
         return response()->json([
             'message' => 'Store driver assigned to batch.',
+            'batch' => $batch,
+        ]);
+    }
+
+    public function moveOrder(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'order_code' => ['required', 'string'],
+            'from_batch' => ['required', 'string'],
+            'to_batch' => ['required', 'string'],
+        ]);
+
+        $result = $this->batches->moveOrder(
+            (string) $validated['order_code'],
+            (string) $validated['from_batch'],
+            (string) $validated['to_batch']
+        );
+
+        return response()->json([
+            'message' => 'Order moved to the selected driver batch.',
+            'from' => $result['from'],
+            'to' => $result['to'],
+        ]);
+    }
+
+    public function reorderStops(Request $request, string $code): JsonResponse
+    {
+        $validated = $request->validate([
+            'order_codes' => ['required', 'array', 'min:1'],
+            'order_codes.*' => ['required', 'string'],
+        ]);
+
+        $batch = $this->batches->reorderStops($code, $validated['order_codes']);
+
+        return response()->json([
+            'message' => 'Stop sequence updated.',
+            'batch' => $batch,
+        ]);
+    }
+
+    public function complete(string $code): JsonResponse
+    {
+        $batch = $this->batches->completeBatch($code);
+
+        return response()->json([
+            'message' => 'Batch marked delivered.',
+            'batch' => $batch,
+        ]);
+    }
+
+    public function cancel(string $code): JsonResponse
+    {
+        $batch = $this->batches->cancelBatch($code);
+
+        return response()->json([
+            'message' => 'Batch cancelled.',
             'batch' => $batch,
         ]);
     }

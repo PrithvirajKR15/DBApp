@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\BatchHub;
 use App\Models\BatchSetting;
 use App\Models\DeliveryBatch;
+use App\Models\DeliveryBatchGroup;
 use App\Models\DeliveryBatchStop;
 use App\Models\Driver;
 use App\Models\DriverAssignment;
@@ -35,6 +36,8 @@ class BatchSeeder extends Seeder
             'prefer_store_drivers' => (bool) ($settings['prefer_store_drivers'] ?? true),
             'auto_fallback_zone' => (bool) ($settings['auto_fallback_zone'] ?? true),
             'slot_window' => $settings['slot_window'] ?? null,
+            'broadcast_radius_km' => (float) ($settings['broadcast_radius_km'] ?? 5),
+            'broadcast_offer_seconds' => (int) ($settings['broadcast_offer_seconds'] ?? 90),
         ]);
 
         foreach ($data['stores'] ?? [] as $hub) {
@@ -77,6 +80,7 @@ class BatchSeeder extends Seeder
                     'prep' => $po['prep'] ?? null,
                     'prep_pct' => ($po['prep'] ?? '') === 'ready' ? 100 : 40,
                     'delivery' => 'waiting',
+                    'status' => Order::STATUS_PENDING,
                     'eta' => null,
                     'lat' => $po['lat'] ?? null,
                     'lng' => $po['lng'] ?? null,
@@ -89,27 +93,66 @@ class BatchSeeder extends Seeder
 
         $this->seedBatchDrivers($data['drivers'] ?? [], $storesByCode);
 
+        $driversByUserCode = Driver::with('user')->get()
+            ->filter(fn (Driver $d) => $d->user?->code)
+            ->mapWithKeys(fn (Driver $d) => [$d->user->code => $d]);
+
+        // One parent group per store for seeded batches (demo index hierarchy).
+        $batchesByStore = collect($data['batches'] ?? [])->groupBy(fn ($b) => $b['store_id'] ?? 'unknown');
+        $groupIdsByStoreCode = [];
+
+        foreach ($batchesByStore as $storeCode => $storeBatches) {
+            $storeId = $storesByCode[$storeCode] ?? null;
+            if (! $storeId) {
+                continue;
+            }
+
+            $statuses = $storeBatches->map(fn ($b) => $this->normalizeBatchStatus($b['status'] ?? null));
+            $groupStatus = DeliveryBatchGroup::STATUS_OPEN;
+            if ($statuses->every(fn ($s) => in_array($s, [DeliveryBatch::STATUS_COMPLETED, DeliveryBatch::STATUS_CANCELLED], true))) {
+                $groupStatus = DeliveryBatchGroup::STATUS_COMPLETED;
+            } elseif ($statuses->contains(DeliveryBatch::STATUS_IN_PROGRESS)) {
+                $groupStatus = DeliveryBatchGroup::STATUS_IN_PROGRESS;
+            }
+
+            $group = DeliveryBatchGroup::create([
+                'code' => 'BG-'.$storeCode.'-SEED',
+                'store_id' => $storeId,
+                'status' => $groupStatus,
+                'batch_count' => $storeBatches->count(),
+                'order_count' => $storeBatches->sum(fn ($b) => (int) ($b['stops'] ?? count($b['orders'] ?? []))),
+                'overflow_count' => 0,
+                'slot_window' => $settings['slot_window'] ?? null,
+            ]);
+
+            $groupIdsByStoreCode[$storeCode] = $group->id;
+        }
+
         foreach ($data['batches'] ?? [] as $batch) {
             $storeCode = $batch['store_id'] ?? null;
-            $driver = $batch['driver'] ?? null;
+            $driverInfo = $batch['driver'] ?? null;
+            $driverModel = $driverInfo['id'] ?? null ? ($driversByUserCode[$driverInfo['id']] ?? null) : null;
             $hub = $batch['hub'] ?? null;
             $route = $batch['route'] ?? [];
+            $status = $this->normalizeBatchStatus($batch['status'] ?? null);
 
             $model = DeliveryBatch::updateOrCreate(
                 ['code' => $batch['id']],
                 [
                     'store_id' => $storesByCode[$storeCode] ?? null,
+                    'batch_group_id' => $groupIdsByStoreCode[$storeCode] ?? null,
+                    'driver_id' => $driverModel?->id,
                     'zone' => $batch['zone'] ?? null,
                     'zone_key' => $batch['zone_key'] ?? null,
                     'route_label' => $batch['route_label'] ?? null,
-                    'status' => $batch['status'] ?? 'pending',
+                    'status' => $status,
                     'stops' => (int) ($batch['stops'] ?? count($batch['orders'] ?? [])),
                     'distance' => $batch['distance'] ?? null,
                     'est_time' => $batch['est_time'] ?? null,
                     'value' => (float) ($batch['value'] ?? 0),
-                    'driver_code' => $driver['id'] ?? null,
-                    'driver_name' => $driver['name'] ?? null,
-                    'driver_avatar' => $driver['avatar'] ?? null,
+                    'driver_code' => $driverInfo['id'] ?? null,
+                    'driver_name' => $driverInfo['name'] ?? null,
+                    'driver_avatar' => $driverInfo['avatar'] ?? null,
                     'hub_lat' => $hub['lat'] ?? null,
                     'hub_lng' => $hub['lng'] ?? null,
                     'hub_name' => $hub['name'] ?? ($batch['store'] ?? null),
@@ -119,9 +162,15 @@ class BatchSeeder extends Seeder
             );
 
             $model->batchStops()->delete();
+            $orderCodes = [];
+
             foreach ($batch['orders'] ?? [] as $stop) {
+                $order = Order::where('code', $stop['id'])->first();
+                $orderCodes[] = $stop['id'];
+
                 DeliveryBatchStop::create([
                     'delivery_batch_id' => $model->id,
+                    'order_id' => $order?->id,
                     'stop' => (int) ($stop['stop'] ?? 0),
                     'order_code' => $stop['id'],
                     'customer' => $stop['customer'],
@@ -135,9 +184,38 @@ class BatchSeeder extends Seeder
                     'delivery' => $stop['delivery'] ?? null,
                 ]);
             }
+
+            if ($orderCodes !== []) {
+                Order::whereIn('code', $orderCodes)->update([
+                    'delivery_batch_id' => $model->id,
+                    'assignment_type' => Order::ASSIGNMENT_STORE_BATCH,
+                    'driver_id' => $driverModel?->id,
+                    'status' => $driverModel ? Order::STATUS_ASSIGNED : Order::STATUS_BATCHED,
+                ]);
+            }
+
+            if ($driverModel && in_array($status, DeliveryBatch::ACTIVE_STATUSES, true)) {
+                $driverModel->update(['current_batch_id' => $model->id]);
+            }
         }
 
         $this->refreshHubStats($storesByCode);
+    }
+
+    /**
+     * The demo data file predates the canonical batch status vocabulary
+     * (pending|assigned|in_progress|completed|cancelled) and uses a couple
+     * of ad hoc synonyms — normalize them so current_batch_id ("is this
+     * driver busy?") backfill logic recognizes every active batch.
+     */
+    private function normalizeBatchStatus(?string $status): string
+    {
+        return match ($status) {
+            'accepted' => DeliveryBatch::STATUS_ASSIGNED,
+            'in_transit' => DeliveryBatch::STATUS_IN_PROGRESS,
+            'completed', 'cancelled', 'pending', 'assigned', 'in_progress' => $status,
+            default => DeliveryBatch::STATUS_PENDING,
+        };
     }
 
     /**
@@ -175,9 +253,12 @@ class BatchSeeder extends Seeder
                 ]
             );
 
+            $type = ($d['type'] ?? 'zone') === 'store' ? 'store' : 'zone';
+
             $driver = Driver::updateOrCreate(
                 ['user_id' => $user->id],
                 [
+                    'driver_type' => $type === 'store' ? Driver::TYPE_STORE : Driver::TYPE_THIRD_PARTY,
                     'availability' => ($d['status'] ?? 'available') === 'available' ? 'Online' : 'Offline',
                     'vehicle_type' => 'scooter',
                     'plate_number' => $d['vehicle'] ?? null,
@@ -185,8 +266,6 @@ class BatchSeeder extends Seeder
                     'service_areas' => $d['zones'] ?? null,
                 ]
             );
-
-            $type = ($d['type'] ?? 'zone') === 'store' ? 'store' : 'zone';
             $storeId = $type === 'store' ? ($storesByCode[$d['store_id'] ?? ''] ?? null) : null;
             $zoneId = null;
 

@@ -18,8 +18,19 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class Driver extends Model
 {
+    /**
+     * Store drivers belong to exactly one store and are eligible for
+     * batching. Third-party (independent) drivers are the broadcast
+     * fallback pool and are never batched — see BroadcastDispatchService.
+     */
+    public const TYPE_STORE = 'store';
+
+    public const TYPE_THIRD_PARTY = 'third_party';
+
     protected $fillable = [
         'user_id',
+        'driver_type',
+        'current_batch_id',
         'rating',
         'joined_at',
         'availability',
@@ -71,6 +82,25 @@ class Driver extends Model
     }
 
     /**
+     * The batch this store driver is currently out delivering, if any.
+     * Null means "not busy" for batching purposes.
+     */
+    public function currentBatch(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryBatch::class, 'current_batch_id');
+    }
+
+    public function batches(): HasMany
+    {
+        return $this->hasMany(DeliveryBatch::class);
+    }
+
+    public function broadcastOffers(): HasMany
+    {
+        return $this->hasMany(BroadcastOffer::class);
+    }
+
+    /**
      * The driver's currently active store/zone assignment.
      */
     public function activeAssignment(): HasOne
@@ -112,23 +142,69 @@ class Driver extends Model
     }
 
     /**
-     * Drivers assigned to a store (active store assignment).
+     * Drivers assigned to a store (active store assignment). Backed by the
+     * denormalized driver_type column for a fast, indexed check; the
+     * activeAssignment relation still carries the specific store_id.
      */
     public function scopeStoreDrivers(Builder $query): Builder
     {
-        return $query->whereHas('activeAssignment', function (Builder $q) {
-            $q->where('type', 'store')->whereNotNull('store_id');
-        });
+        return $query->where('driver_type', self::TYPE_STORE);
     }
 
     /**
-     * Independent drivers assigned to a zone (active zone assignment).
+     * Independent / third-party drivers (the broadcast fallback pool).
+     * Called "zone" drivers in the UI/admin — they're organized by zone for
+     * reporting/coverage — but the underlying type is third_party.
      */
     public function scopeZoneDrivers(Builder $query): Builder
     {
-        return $query->whereHas('activeAssignment', function (Builder $q) {
-            $q->where('type', 'zone')->whereNotNull('zone_id');
-        });
+        return $query->where('driver_type', self::TYPE_THIRD_PARTY);
+    }
+
+    public function scopeThirdPartyDrivers(Builder $query): Builder
+    {
+        return $query->where('driver_type', self::TYPE_THIRD_PARTY);
+    }
+
+    /**
+     * Store drivers currently free to receive a new batch: online and not
+     * already out on another batch. "Busy" = has any active batch at all.
+     */
+    public function scopeAvailableForBatch(Builder $query): Builder
+    {
+        return $query->storeDrivers()
+            ->where('availability', 'Online')
+            ->whereNull('current_batch_id');
+    }
+
+    /**
+     * Third-party drivers eligible to receive a broadcast offer: online and
+     * not already mid-delivery on a previously accepted single order.
+     */
+    public function scopeAvailableForBroadcast(Builder $query): Builder
+    {
+        return $query->thirdPartyDrivers()
+            ->where('availability', 'Online')
+            ->whereDoesntHave('orders', function (Builder $q) {
+                $q->where('status', 'assigned');
+            });
+    }
+
+    public function isStoreDriver(): bool
+    {
+        return $this->driver_type === self::TYPE_STORE;
+    }
+
+    public function isThirdPartyDriver(): bool
+    {
+        return $this->driver_type === self::TYPE_THIRD_PARTY;
+    }
+
+    public function isBusy(): bool
+    {
+        return $this->isStoreDriver()
+            ? $this->current_batch_id !== null
+            : $this->orders()->where('status', 'assigned')->exists();
     }
 
     /**

@@ -186,7 +186,12 @@ $batchDrivers = $data['drivers'] ?? [];
     <div class="step-line" id="step-line-2"></div>
     <div class="step-item" data-step="3">
         <div class="step-num">3</div>
-        <div class="step-label">Review & Confirm</div>
+        <div class="step-label">Review Routes</div>
+    </div>
+    <div class="step-line" id="step-line-3"></div>
+    <div class="step-item" data-step="4">
+        <div class="step-num">4</div>
+        <div class="step-label">Assign Drivers</div>
     </div>
 </div>
 
@@ -233,9 +238,10 @@ $batchDrivers = $data['drivers'] ?? [];
             <div class="store-card {{ $store['status'] === 'offline' ? 'offline' : '' }}"
                  data-store-id="{{ $store['id'] }}"
                  data-pending="{{ $store['pending'] }}"
-                 data-drivers="{{ $store['drivers'] }}"
-                 data-lat="{{ $store['lat'] ?? '' }}"
-                 data-lng="{{ $store['lng'] ?? '' }}">
+             data-drivers="{{ $store['drivers'] }}"
+             data-available-drivers="{{ $store['available_drivers'] ?? 0 }}"
+             data-lat="{{ $store['lat'] ?? '' }}"
+             data-lng="{{ $store['lng'] ?? '' }}">
                 <div class="d-flex align-items-start gap-3 mb-3">
                     <div class="store-avatar" style="background: {{ $store['color'] }};">{{ $initial }}</div>
                     <div class="flex-grow-1 min-w-0">
@@ -250,8 +256,8 @@ $batchDrivers = $data['drivers'] ?? [];
                         <div class="fw-bold text-body" style="font-size: 1.2rem;">{{ $store['pending'] }}</div>
                     </div>
                     <div class="col-4">
-                        <div class="text-muted" style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Drivers</div>
-                        <div class="fw-bold text-body" style="font-size: 1.2rem;">{{ $store['drivers'] }}</div>
+                        <div class="text-muted" style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Available</div>
+                        <div class="fw-bold text-body" style="font-size: 1.2rem;">{{ $store['available_drivers'] ?? 0 }}</div>
                     </div>
                     <div class="col-4">
                         <div class="text-muted" style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Est. Batches</div>
@@ -366,6 +372,19 @@ $batchDrivers = $data['drivers'] ?? [];
 
     <h6 class="fw-bold text-body mb-3">Batch Details</h6>
     <div class="d-flex flex-column gap-3" id="preview-batch-list"></div>
+    <div class="alert alert-warning d-none mt-3 mb-0" id="overflow-alert" style="border-radius: 10px; font-size: 0.88rem;">
+        <i class="bx bx-info-circle me-1"></i>
+        <span id="overflow-alert-text"></span>
+    </div>
+</div>
+
+<!-- Step 4: Assign Drivers -->
+<div id="step-4" class="d-none">
+    <div class="mb-3">
+        <h5 class="fw-bold text-body mb-1">Assign Store Drivers</h5>
+        <p class="text-muted mb-0" style="font-size: 0.9rem;">Pick one available store driver for each child batch. Each driver can only take one batch in this group.</p>
+    </div>
+    <div class="d-flex flex-column gap-3" id="assign-batch-list"></div>
 </div>
 
 <!-- Footer -->
@@ -382,8 +401,11 @@ $batchDrivers = $data['drivers'] ?? [];
         <button type="button" class="btn btn-primary-orange d-none" id="btn-generate" style="border-radius: 8px;">
             <i class="bx bx-route me-1"></i>Generate Routes
         </button>
-        <button type="button" class="btn btn-primary-orange d-none" id="btn-confirm" style="border-radius: 8px;">
-            <i class="bx bx-check me-1"></i>Confirm & Save Batches
+        <button type="button" class="btn btn-primary-orange d-none" id="btn-to-assign" style="border-radius: 8px;">
+            Assign Drivers <i class="bx bx-right-arrow-alt"></i>
+        </button>
+        <button type="button" class="btn btn-primary-orange d-none" id="btn-confirm" disabled style="border-radius: 8px;">
+            <i class="bx bx-check me-1"></i>Confirm & Save Group
         </button>
     </div>
 </div>
@@ -401,6 +423,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let step = 1;
     let selectedStore = null;
     let generatedBatches = [];
+    let overflowCount = 0;
     let previewMap = null;
 
     function loadSavedSettings() {
@@ -421,6 +444,7 @@ document.addEventListener('DOMContentLoaded', function () {
             id: storeId,
             pending: parseInt(card.dataset.pending, 10),
             drivers: parseInt(card.dataset.drivers, 10),
+            availableDrivers: parseInt(card.dataset.availableDrivers || '0', 10),
             name: card.querySelector('.fw-bold').textContent,
             meta: card.querySelector('small.text-muted').textContent,
             color: card.querySelector('.store-avatar').style.background,
@@ -430,7 +454,7 @@ document.addEventListener('DOMContentLoaded', function () {
             lng: parseFloat(card.dataset.lng),
             storeData,
         };
-        document.getElementById('btn-continue').disabled = false;
+        document.getElementById('btn-continue').disabled = selectedStore.availableDrivers < 1 || selectedStore.pending < 1;
     });
 
     function filterStores() {
@@ -450,9 +474,18 @@ document.addEventListener('DOMContentLoaded', function () {
             ordersPerBatch: parseInt(document.getElementById('cfg-orders-per-batch').value, 10) || 5,
             maxDistanceKm: parseFloat(document.getElementById('cfg-max-distance').value) || 10,
             maxRouteMinutes: parseInt(document.getElementById('cfg-max-duration').value, 10) || 45,
+            maxBatches: selectedStore ? selectedStore.availableDrivers : 0,
             preferStoreDrivers: true,
             autoFallbackZone: false,
         };
+    }
+
+    function availableDriversForStore() {
+        if (!selectedStore) return [];
+        return BATCH_DRIVERS.filter(d =>
+            d.store_id === selectedStore.id &&
+            (d.available === true || d.status === 'available')
+        );
     }
 
     function buildRouteSequenceHtml(orders) {
@@ -466,14 +499,22 @@ document.addEventListener('DOMContentLoaded', function () {
         const totalDist = batches.reduce((s, b) => s + (b.distance_km || 0), 0);
 
         document.getElementById('preview-summary').textContent =
-            `${batches.length} optimized route${batches.length === 1 ? '' : 's'} for ${selectedStore.name} — grouped by proximity, not zones`;
+            `${batches.length} route${batches.length === 1 ? '' : 's'} for ${selectedStore.name} (capped by ${selectedStore.availableDrivers} available driver${selectedStore.availableDrivers === 1 ? '' : 's'})`;
         document.getElementById('preview-batch-count').textContent = batches.length;
         document.getElementById('preview-order-count').textContent = totalOrders;
         document.getElementById('preview-total-dist').textContent = totalDist.toFixed(1) + ' km';
 
+        const overflowAlert = document.getElementById('overflow-alert');
+        if (overflowCount > 0) {
+            document.getElementById('overflow-alert-text').textContent =
+                `${overflowCount} order${overflowCount === 1 ? '' : 's'} remain pending for admin to assign later (not included in this parent batch).`;
+            overflowAlert.classList.remove('d-none');
+        } else {
+            overflowAlert.classList.add('d-none');
+        }
+
         list.innerHTML = batches.map((batch, idx) => {
             const hasBorder = batch.border_orders && batch.border_orders.length > 0;
-            const driver = batch.suggested_driver;
             return `
             <div class="preview-batch-card ${hasBorder ? 'border-highlight' : ''}" data-preview-batch="${idx}">
                 <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-2">
@@ -490,7 +531,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="d-flex flex-wrap gap-3" style="font-size: 0.82rem;">
                     <span class="text-muted"><i class="bx bx-trip"></i> Hub → Stop 1: <strong>${batch.route.hub_to_first}</strong></span>
                     <span class="text-muted"><i class="bx bx-undo"></i> Return: <strong>${batch.route.return}</strong></span>
-                    ${driver ? `<span class="text-muted"><i class="bx bx-user"></i> Suggested: <strong>${driver.name}</strong> <span class="badge bg-label-${driver.type === 'store' ? 'warning' : 'info'} rounded-pill" style="font-size:0.65rem;">${driver.reason}</span></span>` : ''}
                 </div>
             </div>`;
         }).join('');
@@ -502,7 +542,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 batches,
                 drivers: BATCH_DRIVERS,
                 height: 460,
-                showDriverOnFirst: true,
+                showDriverOnFirst: false,
                 onBatchSelect(idx) {
                     document.querySelectorAll('.preview-batch-card').forEach((card, i) => {
                         card.classList.toggle('map-highlight', i === idx);
@@ -526,20 +566,97 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function renderAssignStep(batches) {
+        const drivers = availableDriversForStore();
+        const list = document.getElementById('assign-batch-list');
+        list.innerHTML = batches.map((batch, idx) => {
+            const options = drivers.map(d =>
+                `<option value="${d.id}">${d.name} · ${d.vehicle || 'Vehicle'}</option>`
+            ).join('');
+            return `
+            <div class="card shadow-none border" style="border-radius: 12px;">
+                <div class="card-body p-3">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-7">
+                            <div class="fw-bold text-body">Batch ${idx + 1} · ${batch.id}</div>
+                            <small class="text-muted">${batch.stops} stops · ${batch.distance} · ${batch.route_label || batch.zone}</small>
+                            <div class="route-seq mt-2 mb-0">${buildRouteSequenceHtml(batch.orders)}</div>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold mb-1">Store driver</label>
+                            <select class="form-select assign-driver-select" data-batch-idx="${idx}" style="border-radius: 8px;">
+                                <option value="">Select driver…</option>
+                                ${options}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        list.querySelectorAll('.assign-driver-select').forEach(sel => {
+            sel.addEventListener('change', () => {
+                syncDriverOptions();
+                updateConfirmEnabled();
+            });
+        });
+        syncDriverOptions();
+        updateConfirmEnabled();
+    }
+
+    function syncDriverOptions() {
+        const selects = [...document.querySelectorAll('.assign-driver-select')];
+        const chosen = new Set(selects.map(s => s.value).filter(Boolean));
+        selects.forEach(sel => {
+            const current = sel.value;
+            [...sel.options].forEach(opt => {
+                if (!opt.value) return;
+                opt.disabled = chosen.has(opt.value) && opt.value !== current;
+            });
+        });
+    }
+
+    function updateConfirmEnabled() {
+        const selects = [...document.querySelectorAll('.assign-driver-select')];
+        const allFilled = selects.length > 0 && selects.every(s => !!s.value);
+        const values = selects.map(s => s.value).filter(Boolean);
+        const unique = new Set(values).size === values.length;
+        document.getElementById('btn-confirm').disabled = !(allFilled && unique);
+    }
+
+    function collectDriverAssignments() {
+        return generatedBatches.map((batch, idx) => {
+            const sel = document.querySelector(`.assign-driver-select[data-batch-idx="${idx}"]`);
+            return {
+                ...batch,
+                driver_code: sel?.value || '',
+            };
+        });
+    }
+
     function runGeneration() {
-        if (!selectedStore || !window.DeliverEaseBatchGen) return [];
+        if (!selectedStore || !window.DeliverEaseBatchGen) {
+            return { batches: [], overflow: [], overflow_count: 0 };
+        }
 
         const orders = PENDING_ORDERS.filter(o => o.store_id === selectedStore.id);
         const hub = { lat: selectedStore.lat, lng: selectedStore.lng };
         const config = getConfig();
 
-        return window.DeliverEaseBatchGen.generateBatches(
+        const result = window.DeliverEaseBatchGen.generateBatches(
             orders,
             hub,
             selectedStore.storeData || { id: selectedStore.id, name: selectedStore.name },
-            BATCH_DRIVERS,
+            availableDriversForStore(),
             config
         );
+
+        // Back-compat if an older cached asset still returns an array.
+        if (Array.isArray(result)) {
+            return { batches: result, overflow: [], overflow_count: 0 };
+        }
+
+        return result;
     }
 
     function goStep(n) {
@@ -547,10 +664,12 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('step-1').classList.toggle('d-none', n !== 1);
         document.getElementById('step-2').classList.toggle('d-none', n !== 2);
         document.getElementById('step-3').classList.toggle('d-none', n !== 3);
+        document.getElementById('step-4').classList.toggle('d-none', n !== 4);
 
         document.getElementById('btn-continue').classList.toggle('d-none', n !== 1);
         document.getElementById('btn-generate').classList.toggle('d-none', n !== 2);
-        document.getElementById('btn-confirm').classList.toggle('d-none', n !== 3);
+        document.getElementById('btn-to-assign').classList.toggle('d-none', n !== 3);
+        document.getElementById('btn-confirm').classList.toggle('d-none', n !== 4);
         document.getElementById('btn-back').classList.toggle('d-none', n === 1);
 
         document.querySelectorAll('.step-item').forEach(item => {
@@ -560,24 +679,32 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         document.getElementById('step-line-1').classList.toggle('done', n > 1);
         document.getElementById('step-line-2').classList.toggle('done', n > 2);
+        document.getElementById('step-line-3').classList.toggle('done', n > 3);
 
         if (n === 2) {
-            document.getElementById('footer-hint').innerHTML = '<i class="bx bx-info-circle"></i> Set route constraints, then generate optimized batches.';
+            document.getElementById('footer-hint').innerHTML = '<i class="bx bx-info-circle"></i> Set max orders per batch. Routes are capped by available store drivers.';
         } else if (n === 3) {
-            document.getElementById('footer-hint').innerHTML = '<i class="bx bx-info-circle"></i> Review routes on the map, then confirm to save batches for driver assignment.';
+            document.getElementById('footer-hint').innerHTML = '<i class="bx bx-info-circle"></i> Review routes, then assign a store driver to each child batch.';
             setTimeout(() => previewMap?.invalidateSize(), 300);
+        } else if (n === 4) {
+            document.getElementById('footer-hint').innerHTML = '<i class="bx bx-info-circle"></i> Assign every child batch a unique store driver, then confirm.';
         } else {
-            document.getElementById('footer-hint').innerHTML = '<i class="bx bx-info-circle"></i> Select a store with active pending orders to proceed.';
+            document.getElementById('footer-hint').innerHTML = '<i class="bx bx-info-circle"></i> Select a store with pending orders and available drivers.';
         }
     }
 
     document.getElementById('btn-continue').addEventListener('click', () => {
         if (!selectedStore) return;
+        if (selectedStore.availableDrivers < 1) {
+            alert('No available store drivers for this store. Free a driver or wait until a batch finishes.');
+            return;
+        }
         goStep(2);
     });
 
     document.getElementById('btn-back').addEventListener('click', () => {
-        if (step === 3) goStep(2);
+        if (step === 4) goStep(3);
+        else if (step === 3) goStep(2);
         else goStep(1);
     });
 
@@ -587,9 +714,13 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.innerHTML = '<span class="gen-spinner me-1"></span> Optimizing routes…';
 
         setTimeout(() => {
-            generatedBatches = runGeneration();
+            const result = runGeneration();
+            generatedBatches = result.batches || [];
+            overflowCount = result.overflow_count || 0;
             if (!generatedBatches.length) {
-                alert('No pending orders with coordinates found for this store.');
+                alert(selectedStore.availableDrivers < 1
+                    ? 'No available store drivers to create batches.'
+                    : 'No pending orders with coordinates found for this store.');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bx bx-route me-1"></i>Generate Routes';
                 return;
@@ -601,16 +732,29 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 400);
     });
 
+    document.getElementById('btn-to-assign').addEventListener('click', () => {
+        if (!generatedBatches.length) return;
+        renderAssignStep(generatedBatches);
+        goStep(4);
+    });
+
     document.getElementById('btn-confirm').addEventListener('click', async function () {
         const btn = this;
         if (!generatedBatches.length || !selectedStore) return;
+
+        const batchesWithDrivers = collectDriverAssignments();
+        if (batchesWithDrivers.some(b => !b.driver_code)) {
+            alert('Assign a store driver to every child batch.');
+            return;
+        }
 
         const payload = {
             store_id: selectedStore.id,
             store_name: selectedStore.name,
             generated_at: new Date().toISOString(),
             config: getConfig(),
-            batches: generatedBatches,
+            overflow_count: overflowCount,
+            batches: batchesWithDrivers,
         };
 
         btn.disabled = true;
@@ -634,7 +778,8 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (err) {
             alert(err.message || 'Failed to save batches.');
             btn.disabled = false;
-            btn.innerHTML = '<i class="bx bx-check me-1"></i>Confirm & Save Batches';
+            btn.innerHTML = '<i class="bx bx-check me-1"></i>Confirm & Save Group';
+            updateConfirmEnabled();
         }
     });
 });

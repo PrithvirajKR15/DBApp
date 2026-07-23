@@ -6,6 +6,7 @@ use App\Models\BankTransfer;
 use App\Models\BatchHub;
 use App\Models\BatchSetting;
 use App\Models\DeliveryBatch;
+use App\Models\DeliveryBatchGroup;
 use App\Models\DeliveryBatchStop;
 use App\Models\Driver;
 use App\Models\DriverPayoutProfile;
@@ -101,13 +102,23 @@ class OperationsDataService
             ->groupBy(fn (Driver $d) => $d->activeAssignment?->store_id)
             ->map->count();
 
+        $availableDriverCountsByStore = Driver::storeDrivers()
+            ->availableForBatch()
+            ->whereHas('activeAssignment')
+            ->with('activeAssignment')
+            ->get()
+            ->groupBy(fn (Driver $d) => $d->activeAssignment?->store_id)
+            ->map->count();
+
         $stores = BatchHub::query()
             ->orderBy('id')
             ->get()
-            ->map(function (BatchHub $hub) use ($storesByCode, $pendingByStore, $driverCountsByStore, $ordersPerBatch) {
+            ->map(function (BatchHub $hub) use ($storesByCode, $pendingByStore, $driverCountsByStore, $availableDriverCountsByStore, $ordersPerBatch) {
                 $storeId = $storesByCode[$hub->code] ?? null;
                 $pending = $storeId ? (int) ($pendingByStore[$storeId] ?? 0) : (int) $hub->pending;
                 $drivers = $storeId ? (int) ($driverCountsByStore[$storeId] ?? 0) : (int) $hub->drivers_count;
+                $availableDrivers = $storeId ? (int) ($availableDriverCountsByStore[$storeId] ?? 0) : 0;
+                $capacity = max(0, $availableDrivers) * $ordersPerBatch;
 
                 return [
                     'id' => $hub->code,
@@ -116,7 +127,12 @@ class OperationsDataService
                     'branch' => $hub->branch,
                     'pending' => $pending,
                     'drivers' => $drivers,
-                    'est_batches' => (int) ceil($pending / $ordersPerBatch),
+                    'available_drivers' => $availableDrivers,
+                    'capacity' => $capacity,
+                    'est_batches' => min(
+                        $availableDrivers,
+                        (int) ceil($pending / max(1, $ordersPerBatch))
+                    ),
                     'status' => $hub->status,
                     'slot' => $hub->slot,
                     'color' => $hub->color,
@@ -150,16 +166,54 @@ class OperationsDataService
             ->values()
             ->all();
 
-        $batches = DeliveryBatch::with(['batchStops', 'store'])
+        $groups = DeliveryBatchGroup::with(['store', 'batches.batchStops', 'batches.store'])
+            ->whereDate('created_at', now()->toDateString())
             ->orderByDesc('id')
-            ->get()
+            ->get();
+
+        // Fall back to recent groups if nothing was created today (demo/seed).
+        if ($groups->isEmpty()) {
+            $groups = DeliveryBatchGroup::with(['store', 'batches.batchStops', 'batches.store'])
+                ->orderByDesc('id')
+                ->limit(40)
+                ->get();
+        }
+
+        $shapedGroups = $groups
+            ->map(fn (DeliveryBatchGroup $group) => $this->shapeBatchGroup($group))
+            ->values()
+            ->all();
+
+        $batches = $groups
+            ->flatMap(fn (DeliveryBatchGroup $group) => $group->batches)
             ->map(fn (DeliveryBatch $batch) => $this->shapeBatch($batch))
+            ->values()
+            ->all();
+
+        // Group by store for the index hierarchy.
+        $storesByCodeMap = collect($stores)->keyBy('id');
+        $groupsByStore = collect($shapedGroups)
+            ->groupBy('store_id')
+            ->map(function ($storeGroups, $storeCode) use ($storesByCodeMap) {
+                $storeMeta = $storesByCodeMap->get($storeCode);
+
+                return [
+                    'id' => $storeCode,
+                    'name' => $storeMeta['name'] ?? ($storeGroups->first()['store'] ?? $storeCode),
+                    'zone' => $storeMeta['zone'] ?? null,
+                    'pending' => $storeMeta['pending'] ?? 0,
+                    'available_drivers' => $storeMeta['available_drivers'] ?? 0,
+                    'groups' => $storeGroups->values()->all(),
+                ];
+            })
             ->values()
             ->all();
 
         return [
             'settings' => $settings,
             'stores' => $stores,
+            'stores_with_groups' => $groupsByStore,
+            'groups' => $shapedGroups,
             'pending_orders' => $pendingOrders,
             'batches' => $batches,
             'drivers' => $this->batchDrivers(),
@@ -441,16 +495,46 @@ class OperationsDataService
     /**
      * @return array<string, mixed>
      */
+    public function shapeBatchGroup(DeliveryBatchGroup $group): array
+    {
+        $batches = $group->relationLoaded('batches')
+            ? $group->batches
+            : $group->batches()->with(['batchStops', 'store'])->get();
+
+        return [
+            'id' => $group->code,
+            'store_id' => $group->store?->code,
+            'store' => $group->store?->name ?? $batches->first()?->hub_name,
+            'status' => $group->status,
+            'batch_count' => (int) $group->batch_count,
+            'order_count' => (int) $group->order_count,
+            'overflow_count' => (int) $group->overflow_count,
+            'slot_window' => $group->slot_window,
+            'created_at' => optional($group->created_at)->toDateTimeString(),
+            'batches' => $batches->map(function (DeliveryBatch $batch) use ($group) {
+                $shaped = $this->shapeBatch($batch);
+                $shaped['group_id'] = $group->code;
+
+                return $shaped;
+            })->values()->all(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function shapeBatch(DeliveryBatch $batch): array
     {
         $shaped = [
             'id' => $batch->code,
+            'group_id' => $batch->relationLoaded('group') ? $batch->group?->code : null,
             'zone' => $batch->zone,
             'zone_key' => $batch->zone_key,
             'route_label' => $batch->route_label,
             'store' => $batch->hub_name ?? $batch->store?->name,
             'store_id' => $batch->store?->code,
             'status' => $batch->status,
+            'editable' => $batch->isEditable(),
             'stops' => (int) $batch->stops,
             'distance' => $batch->distance,
             'est_time' => $batch->est_time,
@@ -465,24 +549,34 @@ class OperationsDataService
                 'lng' => $batch->hub_lng,
                 'name' => $batch->hub_name,
             ] : null,
-            'orders' => $batch->batchStops->map(fn (DeliveryBatchStop $stop) => [
-                'stop' => (int) $stop->stop,
-                'id' => $stop->order_code,
-                'customer' => $stop->customer,
-                'address' => $stop->address,
-                'locality' => $stop->locality,
-                'lat' => $stop->lat,
-                'lng' => $stop->lng,
-                'value' => (float) $stop->value,
-                'payment' => $stop->payment,
-                'prep' => $stop->prep,
-                'delivery' => $stop->delivery,
-            ])->values()->all(),
+            'orders' => $batch->batchStops
+                ->sortBy([
+                    ['stop', 'asc'],
+                    ['id', 'asc'],
+                ])
+                ->values()
+                ->map(fn (DeliveryBatchStop $stop) => [
+                    'stop' => (int) $stop->stop,
+                    'id' => $stop->order_code,
+                    'customer' => $stop->customer,
+                    'address' => $stop->address,
+                    'locality' => $stop->locality,
+                    'lat' => $stop->lat,
+                    'lng' => $stop->lng,
+                    'value' => (float) $stop->value,
+                    'payment' => $stop->payment,
+                    'prep' => $stop->prep,
+                    'delivery' => $stop->delivery,
+                ])
+                ->all(),
             'route' => [
                 'hub_to_first' => $batch->route_hub_to_first,
                 'return' => $batch->route_return,
             ],
         ];
+
+        // Prefer live stop count from the relation after moves/reorders.
+        $shaped['stops'] = count($shaped['orders']);
 
         return $shaped;
     }
@@ -495,7 +589,11 @@ class OperationsDataService
     protected function batchDrivers(): array
     {
         $assignedLoads = DeliveryBatch::query()
-            ->whereIn('status', ['pending', 'accepted', 'assigned', 'in_transit'])
+            ->whereIn('status', [
+                DeliveryBatch::STATUS_PENDING,
+                DeliveryBatch::STATUS_ASSIGNED,
+                DeliveryBatch::STATUS_IN_PROGRESS,
+            ])
             ->whereNotNull('driver_code')
             ->selectRaw('driver_code, COUNT(*) as total')
             ->groupBy('driver_code')
@@ -518,7 +616,8 @@ class OperationsDataService
                 $lng = $location?->lng ?? $hub?->lng;
                 $avatar = $user->image ? basename((string) $user->image) : '1.png';
                 $available = strtolower((string) $driver->availability) === 'online'
-                    && strtolower((string) ($user->status ?? 'Active')) === 'active';
+                    && strtolower((string) ($user->status ?? 'Active')) === 'active'
+                    && $driver->current_batch_id === null;
 
                 return [
                     'id' => $user->code,
@@ -529,6 +628,8 @@ class OperationsDataService
                     'store_id' => $store?->code,
                     'vehicle' => $driver->plate_number ?? ($driver->vehicle_type ?? 'Vehicle'),
                     'status' => $available ? 'available' : 'offline',
+                    'available' => $available,
+                    'busy' => $driver->current_batch_id !== null,
                     'load' => (int) ($assignedLoads[$user->code] ?? 0),
                     'distance' => '—',
                     'eta' => '—',

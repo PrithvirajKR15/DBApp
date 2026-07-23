@@ -37,7 +37,9 @@ class DriverService
         return DB::transaction(function () use ($data, $avatar, $documents) {
             [$user] = $this->createDriverUser($data, $avatar);
 
-            $driver = $this->createDriverProfile($user, $data);
+            $driver = $this->createDriverProfile($user, $data, [
+                'driver_type' => Driver::TYPE_STORE,
+            ]);
 
             DriverAssignment::create([
                 'driver_id' => $driver->id,
@@ -126,6 +128,7 @@ class DriverService
             [$user] = $this->createDriverUser($data, $avatar);
 
             $driver = $this->createDriverProfile($user, $data, [
+                'driver_type' => Driver::TYPE_THIRD_PARTY,
                 'partner_type' => $data['partner_type'] ?? 'independent',
                 'agency_name' => $data['agency_name'] ?? null,
                 'agency_id' => $data['agency_id'] ?? null,

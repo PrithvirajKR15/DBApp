@@ -14,6 +14,8 @@ class BatchSetting extends Model
         'prefer_store_drivers',
         'auto_fallback_zone',
         'slot_window',
+        'broadcast_radius_km',
+        'broadcast_offer_seconds',
     ];
 
     protected function casts(): array
@@ -22,6 +24,7 @@ class BatchSetting extends Model
             'prefer_store_drivers' => 'boolean',
             'auto_fallback_zone' => 'boolean',
             'max_distance_km' => 'float',
+            'broadcast_radius_km' => 'float',
         ];
     }
 }

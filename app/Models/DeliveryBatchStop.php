@@ -9,6 +9,7 @@ class DeliveryBatchStop extends Model
 {
     protected $fillable = [
         'delivery_batch_id',
+        'order_id',
         'stop',
         'order_code',
         'customer',
@@ -34,5 +35,10 @@ class DeliveryBatchStop extends Model
     public function batch(): BelongsTo
     {
         return $this->belongsTo(DeliveryBatch::class, 'delivery_batch_id');
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
     }
 }
