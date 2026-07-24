@@ -46,11 +46,21 @@ class DatabaseSeeder extends Seeder
     $this->call([
         StoreSeeder::class,
         ZoneSeeder::class,
+        StoreZoneSeeder::class,
+        AgencySeeder::class,
         DriverSeeder::class,
+        AgencyDriverSeeder::class,
         OrderSeeder::class,
         BatchSeeder::class,
         PayoutSeeder::class,
         EarningsSeeder::class,
     ]);
+
+    // Link demo store admin to the Pattom store for agency scoping.
+    $demoStore = \App\Models\Store::where('code', 'downtown')->first();
+    $demoStoreAdmin = User::where('email', 'storeadmin@kenland.in')->first();
+    if ($demoStore && $demoStoreAdmin) {
+        $demoStoreAdmin->update(['store_id' => $demoStore->id]);
+    }
   }
 }

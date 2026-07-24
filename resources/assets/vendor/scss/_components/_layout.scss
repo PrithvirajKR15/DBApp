@@ -130,7 +130,7 @@
   // Style for detached navbar
   &.navbar-detached {
     /* Container layout max-width */
-    $container-xxl: map-get($container-max-widths, xxl);
+    // $container-xxl: map-get($container-max-widths, xxl);
     @include border-radius($border-radius);
     box-shadow: var(--#{$prefix}box-shadow-sm);
 
@@ -139,9 +139,9 @@
     margin-block: $spacer 0;
     padding-block: 0;
     padding-inline: $card-spacer-x;
-    &.container-xxl {
-      max-inline-size: calc(#{$container-xxl} - calc(#{$container-padding-x} * 2));
-    }
+    // &.container-xxl {
+    //   max-inline-size: calc(#{$container-xxl} - calc(#{$container-padding-x} * 2));
+    // }
 
     // Navbar fixed
     .layout-menu-fixed & {

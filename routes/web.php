@@ -15,6 +15,9 @@ use App\Http\Controllers\Operations\EarningsController;
 use App\Http\Controllers\Operations\OrderController;
 use App\Http\Controllers\Operations\PayoutController;
 use App\Http\Controllers\Users\UserController;
+use App\Http\Controllers\Agencies\AgencyController;
+use App\Http\Controllers\Executive\ExecutiveDashboardController;
+use App\Http\Controllers\pages\SettingsController;
 
 // Guest authentication routes
 Route::middleware('guest')->group(function () {
@@ -41,11 +44,31 @@ Route::middleware('auth')->group(function () {
 
     // Admin dashboard: non-admins are redirected to their own home page
     Route::get('/', [DashboardController::class, 'admin'])->name('dashboard-analytics');
+
+    // Shared agency branch lookup for zone-driver forms
+    Route::get('/agencies/branches-for-zone', [AgencyController::class, 'branchesForZone'])
+        ->middleware('role:admin,store_admin,executive')
+        ->name('agencies.branches-for-zone');
 });
 
 // Store Admin routes
-Route::middleware(['auth', 'role:store_admin'])->group(function () {
-    Route::get('/store/dashboard', [DashboardController::class, 'storeAdmin'])->name('store-dashboard');
+Route::middleware(['auth', 'role:store_admin'])->prefix('store')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'storeAdmin'])->name('store-dashboard');
+
+    Route::get('/agencies', [AgencyController::class, 'index'])->name('store-agencies');
+    Route::get('/agencies/{id}', [AgencyController::class, 'show'])->name('store-agencies.show');
+});
+
+// Executive routes
+Route::middleware(['auth', 'role:executive'])->prefix('executive')->group(function () {
+    Route::get('/dashboard', [ExecutiveDashboardController::class, 'index'])->name('executive-dashboard');
+
+    Route::get('/drivers', [ZoneDriverController::class, 'index'])->name('executive-drivers');
+    Route::get('/drivers/list', [ZoneDriverController::class, 'list'])->name('executive-drivers.list');
+    Route::post('/drivers', [ZoneDriverController::class, 'store'])->name('executive-drivers.store');
+    Route::post('/drivers/{code}/update', [ZoneDriverController::class, 'update'])->name('executive-drivers.update');
+    Route::delete('/drivers/{code}', [ZoneDriverController::class, 'destroy'])->name('executive-drivers.destroy');
+    Route::post('/drivers/{code}/status', [ZoneDriverController::class, 'updateStatus'])->name('executive-drivers.status');
 });
 
 // User routes
@@ -53,9 +76,35 @@ Route::middleware(['auth', 'role:user'])->group(function () {
     Route::get('/user/dashboard', [DashboardController::class, 'user'])->name('user-dashboard');
 });
 
+// Agency management shared by Admin + Store Admin
+Route::middleware(['auth', 'role:admin,store_admin'])->prefix('agencies')->group(function () {
+    Route::get('/list', [AgencyController::class, 'list'])->name('agencies.list');
+    Route::post('/', [AgencyController::class, 'store'])->name('agencies.store');
+    Route::get('/{id}/detail', [AgencyController::class, 'detail'])->name('agencies.detail');
+    Route::post('/{id}/update', [AgencyController::class, 'update'])->name('agencies.update');
+    Route::delete('/{id}', [AgencyController::class, 'destroy'])->name('agencies.destroy');
+
+    Route::post('/{id}/branches', [AgencyController::class, 'storeBranch'])->name('agencies.branches.store');
+    Route::post('/branches/{branchId}/update', [AgencyController::class, 'updateBranch'])->name('agencies.branches.update');
+    Route::delete('/branches/{branchId}', [AgencyController::class, 'destroyBranch'])->name('agencies.branches.destroy');
+
+    Route::post('/{id}/executives', [AgencyController::class, 'storeExecutive'])->name('agencies.executives.store');
+    Route::get('/executives/{executiveId}', [AgencyController::class, 'showExecutive'])->name('agencies.executives.show');
+    Route::get('/executives/{executiveId}/drivers', [AgencyController::class, 'executiveDrivers'])->name('agencies.executives.drivers');
+    Route::post('/executives/{executiveId}/branches', [AgencyController::class, 'syncExecutiveBranches'])->name('agencies.executives.branches');
+});
+
 // Admin-only pages (Deliverease admin panel)
 Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/live-map', [LiveMapController::class, 'index'])->name('live-map');
+
+    Route::prefix('agencies')->group(function () {
+        Route::get('/pending', [AgencyController::class, 'pending'])->name('agencies-pending');
+        Route::get('/approved', [AgencyController::class, 'approved'])->name('agencies-approved');
+        Route::get('/{id}', [AgencyController::class, 'show'])->name('agencies.show');
+        Route::post('/{id}/approve', [AgencyController::class, 'approve'])->name('agencies.approve');
+        Route::post('/{id}/reject', [AgencyController::class, 'reject'])->name('agencies.reject');
+    });
 
     Route::prefix('fleet')->group(function () {
         Route::get('/drivers/store', [StoreDriverController::class, 'index'])->name('fleet-drivers-store');
@@ -122,7 +171,13 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/users/{id}/update',[UserController::class,'update'])->name('users.update');
     Route::post('users/{id}/toggle-status',[UserController::class,'toggleStatus'])->name('users.toggleStatus');
 
-    Route::get('/system/settings', function () {
-        return view('content.pages.settings');
-    })->name('system-settings');
+    Route::get('/system/settings', [SettingsController::class, 'index'])->name('system-settings');
+    Route::post('/system/settings/zones/{zone}/pincodes', [SettingsController::class, 'saveZonePincodes'])
+        ->name('system-settings.zones.pincodes');
+    Route::delete('/system/settings/zones/{zone}', [SettingsController::class, 'destroyZone'])
+        ->name('system-settings.zones.destroy');
+    Route::post('/system/settings/stores/{store}', [SettingsController::class, 'saveStore'])
+        ->name('system-settings.stores.save');
+    Route::delete('/system/settings/stores/{store}', [SettingsController::class, 'destroyStore'])
+        ->name('system-settings.stores.destroy');
 });

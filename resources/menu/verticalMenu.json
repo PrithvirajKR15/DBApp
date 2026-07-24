@@ -1,27 +1,32 @@
 {
   "menu": [
     {
-      "menuHeader": "OVERVIEW"
+      "menuHeader": "OVERVIEW",
+      "roles": ["admin"]
     },
     {
       "url": "/",
       "name": "Dashboard",
       "icon": "menu-icon icon-base bx bx-grid-alt",
-      "slug": "dashboard-analytics"
+      "slug": "dashboard-analytics",
+      "roles": ["admin"]
     },
     {
       "url": "/live-map",
       "name": "Live Map",
       "icon": "menu-icon icon-base bx bx-map",
-      "slug": "live-map"
+      "slug": "live-map",
+      "roles": ["admin"]
     },
     {
-      "menuHeader": "FLEET MANAGEMENT"
+      "menuHeader": "FLEET MANAGEMENT",
+      "roles": ["admin"]
     },
     {
       "name": "Drivers",
       "icon": "menu-icon icon-base bx bx-group",
       "slug": "fleet-drivers",
+      "roles": ["admin"],
       "submenu": [
         {
           "url": "/fleet/drivers/store",
@@ -39,15 +44,40 @@
       "url": "/fleet/approvals",
       "name": "Pending Approvals",
       "icon": "menu-icon icon-base bx bx-check-shield",
-      "slug": "fleet-approvals"
+      "slug": "fleet-approvals",
+      "roles": ["admin"]
     },
     {
-      "menuHeader": "OPERATIONS"
+      "menuHeader": "THIRD PARTY AGENCIES",
+      "roles": ["admin"]
+    },
+    {
+      "name": "Agencies",
+      "icon": "menu-icon icon-base bx bx-buildings",
+      "slug": ["agencies-pending", "agencies-approved", "agencies.show"],
+      "roles": ["admin"],
+      "submenu": [
+        {
+          "url": "/agencies/pending",
+          "name": "Pending Requests",
+          "slug": "agencies-pending"
+        },
+        {
+          "url": "/agencies/approved",
+          "name": "Approved Agencies",
+          "slug": "agencies-approved"
+        }
+      ]
+    },
+    {
+      "menuHeader": "OPERATIONS",
+      "roles": ["admin"]
     },
     {
       "name": "Orders & Delivery",
       "icon": "menu-icon icon-base bx bx-package",
       "slug": ["operations-orders"],
+      "roles": ["admin"],
       "submenu": [
         {
           "url": "/operations/orders",
@@ -65,6 +95,7 @@
       "name": "Earnings & Payouts",
       "icon": "menu-icon icon-base bx bx-wallet",
       "slug": ["operations-earnings", "operations-payouts"],
+      "roles": ["admin"],
       "submenu": [
         {
           "url": "/operations/earnings",
@@ -79,25 +110,65 @@
       ]
     },
     {
-      "menuHeader": "SYSTEM"
+      "menuHeader": "SYSTEM",
+      "roles": ["admin"]
     },
     {
       "url": "/system/analytics",
       "name": "Analytics",
       "icon": "menu-icon icon-base bx bx-bar-chart-alt-2",
-      "slug": "system-analytics"
+      "slug": "system-analytics",
+      "roles": ["admin"]
     },
     {
       "url": "/system/users",
       "name": "Users",
       "icon": "menu-icon icon-base bx bx-user",
-      "slug": "system-users"
+      "slug": "system-users",
+      "roles": ["admin"]
     },
     {
       "url": "/system/settings",
       "name": "Settings",
       "icon": "menu-icon icon-base bx bx-cog",
-      "slug": "system-settings"
+      "slug": "system-settings",
+      "roles": ["admin"]
+    },
+    {
+      "menuHeader": "STORE",
+      "roles": ["store_admin"]
+    },
+    {
+      "url": "/store/dashboard",
+      "name": "Dashboard",
+      "icon": "menu-icon icon-base bx bx-grid-alt",
+      "slug": "store-dashboard",
+      "roles": ["store_admin"]
+    },
+    {
+      "url": "/store/agencies",
+      "name": "Third Party Agencies",
+      "icon": "menu-icon icon-base bx bx-buildings",
+      "slug": "store-agencies",
+      "roles": ["store_admin"]
+    },
+    {
+      "menuHeader": "EXECUTIVE",
+      "roles": ["executive"]
+    },
+    {
+      "url": "/executive/dashboard",
+      "name": "Dashboard",
+      "icon": "menu-icon icon-base bx bx-grid-alt",
+      "slug": "executive-dashboard",
+      "roles": ["executive"]
+    },
+    {
+      "url": "/executive/drivers",
+      "name": "My Drivers",
+      "icon": "menu-icon icon-base bx bx-group",
+      "slug": "executive-drivers",
+      "roles": ["executive"]
     }
   ]
 }

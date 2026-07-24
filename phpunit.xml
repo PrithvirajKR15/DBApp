@@ -37,5 +37,8 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="GEOCODING_ENABLED" value="false"/>
+        <env name="GEOCODING_FALLBACK" value="true"/>
+        <env name="PARTNER_API_TOKEN" value="test-partner-token"/>
     </php>
 </phpunit>

@@ -115,7 +115,11 @@ class DriverSeeder extends Seeder
                 ['user_id' => $user->id],
                 [
                     'rating' => $d['rating'],
-                    'availability' => $d['live_status'] === 'Offline' ? 'Offline' : 'Online',
+                    'availability' => match ($d['live_status']) {
+                        'Offline' => 'Offline',
+                        'Transit' => 'Transit',
+                        default => 'Online',
+                    },
                 ]
             );
 

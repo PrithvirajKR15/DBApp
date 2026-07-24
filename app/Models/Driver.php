@@ -22,18 +22,30 @@ class Driver extends Model
      * Store drivers belong to exactly one store and are eligible for
      * batching. Third-party (independent) drivers are the broadcast
      * fallback pool and are never batched — see BroadcastDispatchService.
+     *
+     * Spec aliases: STORE_ASSIGNED ↔ store, THIRD_PARTY ↔ third_party.
      */
     public const TYPE_STORE = 'store';
 
+    public const TYPE_STORE_ASSIGNED = 'store';
+
     public const TYPE_THIRD_PARTY = 'third_party';
+
+    public const DISPATCH_IDLE = 'IDLE';
+
+    public const DISPATCH_BUSY = 'BUSY';
+
+    public const DISPATCH_OFFLINE = 'OFFLINE';
 
     protected $fillable = [
         'user_id',
         'driver_type',
+        'store_id',
         'current_batch_id',
         'rating',
         'joined_at',
         'availability',
+        'dispatch_status',
         'vehicle_type',
         'vehicle_brand',
         'vehicle_model',
@@ -43,8 +55,8 @@ class Driver extends Model
         'shift',
         'working_days',
         'partner_type',
-        'agency_name',
-        'agency_id',
+        'agency_branch_id',
+        'agency_registration_number',
         'service_areas',
     ];
 
@@ -61,6 +73,11 @@ class Driver extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 
     public function orders(): HasMany
@@ -106,6 +123,11 @@ class Driver extends Model
     public function activeAssignment(): HasOne
     {
         return $this->hasOne(DriverAssignment::class)->where('is_active', true);
+    }
+
+    public function agencyBranch(): BelongsTo
+    {
+        return $this->belongsTo(AgencyBranch::class);
     }
 
     /**
@@ -167,27 +189,70 @@ class Driver extends Model
     }
 
     /**
-     * Store drivers currently free to receive a new batch: online and not
+     * Store drivers currently free to receive a new batch: online/idle and not
      * already out on another batch. "Busy" = has any active batch at all.
      */
     public function scopeAvailableForBatch(Builder $query): Builder
     {
         return $query->storeDrivers()
-            ->where('availability', 'Online')
+            ->where(function (Builder $q) {
+                $q->where('dispatch_status', self::DISPATCH_IDLE)
+                    ->orWhere(function (Builder $inner) {
+                        $inner->whereNull('dispatch_status')
+                            ->where('availability', 'Online');
+                    });
+            })
             ->whereNull('current_batch_id');
     }
 
     /**
-     * Third-party drivers eligible to receive a broadcast offer: online and
+     * Third-party drivers eligible to receive a broadcast offer: idle and
      * not already mid-delivery on a previously accepted single order.
      */
     public function scopeAvailableForBroadcast(Builder $query): Builder
     {
         return $query->thirdPartyDrivers()
-            ->where('availability', 'Online')
+            ->where(function (Builder $q) {
+                $q->where('dispatch_status', self::DISPATCH_IDLE)
+                    ->orWhere(function (Builder $inner) {
+                        $inner->whereNull('dispatch_status')
+                            ->where('availability', 'Online');
+                    });
+            })
             ->whereDoesntHave('orders', function (Builder $q) {
                 $q->where('status', 'assigned');
             });
+    }
+
+    /**
+     * Third-party drivers whose primary zone (or service_areas) covers a
+     * zone that owns the given delivery pincode.
+     */
+    public function scopeServingPincode(Builder $query, string $pincode): Builder
+    {
+        $normalized = preg_replace('/\s+/', '', $pincode);
+
+        $zones = Zone::query()
+            ->whereHas('pincodes', fn (Builder $q) => $q->where('pincode', $normalized))
+            ->get(['id', 'code']);
+
+        if ($zones->isEmpty()) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        $zoneIds = $zones->pluck('id')->all();
+        $zoneCodes = $zones->pluck('code')->all();
+
+        return $query->where(function (Builder $q) use ($zoneIds, $zoneCodes) {
+            $q->whereHas('activeAssignment', function (Builder $assignment) use ($zoneIds) {
+                $assignment->where('type', 'zone')
+                    ->whereIn('zone_id', $zoneIds);
+            });
+
+            foreach ($zoneCodes as $code) {
+                $q->orWhereJsonContains('service_areas', $code);
+            }
+        });
     }
 
     public function isStoreDriver(): bool
@@ -200,8 +265,18 @@ class Driver extends Model
         return $this->driver_type === self::TYPE_THIRD_PARTY;
     }
 
+    public function isIdle(): bool
+    {
+        return ($this->dispatch_status ?? self::DISPATCH_IDLE) === self::DISPATCH_IDLE
+            && $this->availability !== 'Offline';
+    }
+
     public function isBusy(): bool
     {
+        if ($this->dispatch_status === self::DISPATCH_BUSY) {
+            return true;
+        }
+
         return $this->isStoreDriver()
             ? $this->current_batch_id !== null
             : $this->orders()->where('status', 'assigned')->exists();

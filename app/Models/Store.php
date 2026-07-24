@@ -11,6 +11,7 @@ class Store extends Model
 {
     protected $fillable = [
         'code',
+        'external_store_id',
         'name',
         'user_id',
         'area',
@@ -18,6 +19,7 @@ class Store extends Model
         'phone',
         'lat',
         'lng',
+        'serviceable_pincodes',
         'status',
     ];
 
@@ -26,6 +28,7 @@ class Store extends Model
         return [
             'lat' => 'float',
             'lng' => 'float',
+            'serviceable_pincodes' => 'array',
         ];
     }
 
@@ -52,5 +55,31 @@ class Store extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function pincodes(): HasMany
+    {
+        return $this->hasMany(StorePincode::class);
+    }
+
+    public function zones(): BelongsToMany
+    {
+        return $this->belongsToMany(Zone::class, 'store_zones')->withTimestamps();
+    }
+
+    public function agencies(): HasMany
+    {
+        return $this->hasMany(Agency::class);
+    }
+
+    public function servesPincode(string $pincode): bool
+    {
+        $normalized = preg_replace('/\s+/', '', $pincode);
+
+        if ($this->relationLoaded('pincodes')) {
+            return $this->pincodes->contains('pincode', $normalized);
+        }
+
+        return $this->pincodes()->where('pincode', $normalized)->exists();
     }
 }

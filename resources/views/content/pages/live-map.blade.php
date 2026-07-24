@@ -311,6 +311,38 @@ $container = 'container-fluid';
         text-align: center;
         padding: 2rem;
     }
+
+    .stat-filter-chip {
+        background-color: #fff;
+        border: 1px solid #e0e2e7 !important;
+        border-radius: 8px !important;
+        cursor: pointer;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+        user-select: none;
+    }
+
+    .stat-filter-chip:hover {
+        border-color: #ff7a00 !important;
+        box-shadow: 0 2px 8px rgba(255, 122, 0, 0.08);
+    }
+
+    .stat-filter-chip.active {
+        border-color: #ff7a00 !important;
+        background-color: rgba(255, 122, 0, 0.04);
+        box-shadow: 0 2px 8px rgba(255, 122, 0, 0.12);
+    }
+
+    .stat-filter-chip.active[data-status="transit"] h4 {
+        color: #696cff !important;
+    }
+
+    .stat-filter-chip.active[data-status="idle"] h4 {
+        color: #71dd37 !important;
+    }
+
+    .stat-filter-chip.active[data-status="offline"] h4 {
+        color: #8592a3 !important;
+    }
 </style>
 
 <div class="tracking-wrapper">
@@ -330,11 +362,9 @@ $container = 'container-fluid';
                     <i class="bx bx-layer text-muted position-absolute" style="left: 12px; font-size: 1.1rem; pointer-events: none;"></i>
                     <select class="form-select form-select-sm" id="map-zone-filter" style="width: 150px; padding-left: 36px; border-color: #d9dee3; font-size: 0.82rem; height: 38px; border-radius: 6px; cursor: pointer;">
                         <option value="all">All Zones</option>
-                        <option value="north">North — Pattom</option>
-                        <option value="central">Central — Kowdiar</option>
-                        <option value="east">East — Technopark</option>
-                        <option value="west">West — Medical College</option>
-                        <option value="south">South — East Fort</option>
+                        @foreach(($zones ?? []) as $zone)
+                            <option value="{{ $zone['code'] }}">{{ $zone['name'] }}</option>
+                        @endforeach
                     </select>
                 </div>
 
@@ -363,21 +393,21 @@ $container = 'container-fluid';
     <!-- Main Workspace Area -->
     <div class="d-flex flex-grow-1 w-100" style="min-height: 0; height: calc(100% - 70px);">
         <div class="tracking-sidebar">
-            <div class="row g-2 px-3 my-3">
+            <div class="row g-2 px-3 my-3" id="stat-filter-chips">
                 <div class="col-4">
-                    <div class="border rounded text-center py-2 px-1" style="background-color: #fff; border-color: #e0e2e7 !important; border-radius: 8px !important;">
+                    <div class="stat-filter-chip border rounded text-center py-2 px-1" data-status="transit" role="button" tabindex="0" title="Show in-transit drivers" aria-pressed="false">
                         <h4 class="mb-0 fw-bold text-body" style="font-size: 1.2rem;">{{ $stats['transit'] }}</h4>
                         <div class="text-muted" style="font-size: 0.72rem; font-weight: 500;">In Transit</div>
                     </div>
                 </div>
                 <div class="col-4">
-                    <div class="border rounded text-center py-2 px-1" style="background-color: #fff; border-color: #e0e2e7 !important; border-radius: 8px !important;">
+                    <div class="stat-filter-chip border rounded text-center py-2 px-1" data-status="idle" role="button" tabindex="0" title="Show idle drivers" aria-pressed="false">
                         <h4 class="mb-0 fw-bold text-success" style="font-size: 1.2rem;">{{ $stats['idle'] }}</h4>
                         <div class="text-muted" style="font-size: 0.72rem; font-weight: 500;">Idle</div>
                     </div>
                 </div>
                 <div class="col-4">
-                    <div class="border rounded text-center py-2 px-1" style="background-color: #fff; border-color: #e0e2e7 !important; border-radius: 8px !important;">
+                    <div class="stat-filter-chip border rounded text-center py-2 px-1" data-status="offline" role="button" tabindex="0" title="Show offline drivers" aria-pressed="false">
                         <h4 class="mb-0 fw-bold text-secondary" style="font-size: 1.2rem;">{{ $stats['offline'] }}</h4>
                         <div class="text-muted" style="font-size: 0.72rem; font-weight: 500;">Offline</div>
                     </div>
@@ -444,8 +474,8 @@ $container = 'container-fluid';
                         <span class="text-muted">Offline</span>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="d-inline-block border border-danger rounded" style="width: 10px; height: 10px; border-width: 2px !important; background-color: rgba(255, 62, 29, 0.1);"></span>
-                        <span class="text-muted">Delivery Zone</span>
+                        <span class="d-inline-block border border-danger rounded-circle" style="width: 10px; height: 10px; border-width: 2px !important; background-color: rgba(255, 62, 29, 0.1);"></span>
+                        <span class="text-muted">Zone (10 km)</span>
                     </div>
                 </div>
             </div>
@@ -478,17 +508,11 @@ $container = 'container-fluid';
 <script>
     window.LIVE_MAP = {
         drivers: @json($drivers),
+        zones: @json($zones ?? []),
+        zoneRadiusMeters: {{ (int) ($zoneRadiusMeters ?? 10000) }},
         avatarBase: @json(asset('assets/img/avatars')),
         googleMapsKey: @json($googleMapsKey ?? ''),
-        // Thiruvananthapuram, Kerala
-        center: { lat: 8.5241, lng: 76.9366 },
-        zonePath: [
-            { lat: 8.5350, lng: 76.9250 },
-            { lat: 8.5350, lng: 76.9750 },
-            { lat: 8.4900, lng: 76.9800 },
-            { lat: 8.4750, lng: 76.9400 },
-            { lat: 8.4900, lng: 76.9200 }
-        ]
+        center: @json($mapCenter ?? ['lat' => 8.5241, 'lng' => 76.9366]),
     };
 </script>
 
@@ -500,7 +524,10 @@ $container = 'container-fluid';
 (function () {
     const cfg = window.LIVE_MAP;
     const drivers = cfg.drivers || [];
+    const zones = cfg.zones || [];
+    const zoneRadiusMeters = cfg.zoneRadiusMeters || 10000;
     const markers = {};
+    const zoneCircles = [];
     let map = null;
     let infoWindow = null;
     let isDark = false;
@@ -797,20 +824,102 @@ $container = 'container-fluid';
 
         renderDriverProfileCard(d);
 
-        if (flyToMap && mapReady && map) {
+        if (flyToMap && mapReady && map && shouldShowOnMap(d)) {
             map.panTo({ lat: d.lat, lng: d.lng });
             map.setZoom(Math.max(map.getZoom(), 14));
             if (markers[id]) {
                 markers[id].openInfo();
             }
+        } else if (infoWindow) {
+            infoWindow.close();
         }
     };
+
+    function syncStatChips(statusFilter) {
+        document.querySelectorAll('.stat-filter-chip').forEach(chip => {
+            const active = chip.dataset.status === statusFilter;
+            chip.classList.toggle('active', active);
+            chip.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    }
+
+    function setStatusFilter(status, { fitMap = false } = {}) {
+        const select = document.getElementById('map-status-filter');
+        const next = status || 'all';
+        if (select.value !== next) {
+            select.value = next;
+        }
+        syncStatChips(next);
+        filterDrivers();
+        if (fitMap && mapReady) {
+            fitVisibleDrivers();
+        }
+    }
+
+    function hasMapLocation(d) {
+        return Number.isFinite(d.lat) && Number.isFinite(d.lng) && !(d.lat === 0 && d.lng === 0);
+    }
+
+    /** Online / in-transit drivers are plotted at their current or last known fix. */
+    function shouldShowOnMap(d) {
+        return d.status !== 'Offline' && hasMapLocation(d);
+    }
+
+    function syncZoneCircles() {
+        if (!map) return;
+
+        const zoneFilter = document.getElementById('map-zone-filter')?.value || 'all';
+        zoneCircles.forEach(({ circle, zone }) => {
+            // No zone rings for "All Zones"; only show when a region is chosen.
+            const visible = zoneFilter !== 'all' && zone.code === zoneFilter;
+            circle.setMap(visible ? map : null);
+        });
+    }
+
+    function drawZoneCircles() {
+        zoneCircles.length = 0;
+
+        zones.forEach(zone => {
+            if (!zone.lat || !zone.lng) return;
+
+            const circle = new google.maps.Circle({
+                center: { lat: zone.lat, lng: zone.lng },
+                radius: zoneRadiusMeters,
+                strokeColor: '#ff3e1d',
+                strokeOpacity: 0.85,
+                strokeWeight: 2,
+                fillColor: '#ff3e1d',
+                fillOpacity: 0.05,
+                map: null, // hidden until a specific region is selected
+                clickable: true,
+                zIndex: 1
+            });
+
+            circle.addListener('click', () => {
+                infoWindow.setContent(
+                    `<div style="padding:8px 12px;">` +
+                    `<strong>${zone.name}</strong><br>` +
+                    `<span style="font-size:0.75rem;color:#8592a3;">${regionLabel(zone.region)} · 10 km radius</span>` +
+                    `</div>`
+                );
+                infoWindow.setPosition({ lat: zone.lat, lng: zone.lng });
+                infoWindow.open(map);
+            });
+
+            zoneCircles.push({ circle, zone });
+        });
+
+        syncZoneCircles();
+    }
 
     function filterDrivers() {
         const searchQuery = document.getElementById('search-driver-map').value.toLowerCase();
         const statusFilter = document.getElementById('map-status-filter').value;
         const zoneFilter = document.getElementById('map-zone-filter').value;
         let visibleCount = 0;
+
+        syncStatChips(statusFilter);
+        syncZoneCircles();
 
         drivers.forEach(d => {
             const cardEl = document.getElementById(`driver-card-${d.id}`);
@@ -821,7 +930,7 @@ $container = 'container-fluid';
             const visible = matchesSearch && matchesStatus && matchesZone;
 
             if (cardEl) cardEl.style.display = visible ? 'block' : 'none';
-            if (markers[d.id]) markers[d.id].setVisible(visible);
+            if (markers[d.id]) markers[d.id].setVisible(visible && shouldShowOnMap(d));
             if (visible) visibleCount++;
         });
 
@@ -837,7 +946,7 @@ $container = 'container-fluid';
         drivers.forEach(d => {
             const matchesStatus = (statusFilter === 'all' || d.status.toLowerCase() === statusFilter);
             const matchesZone = (zoneFilter === 'all' || d.zone === zoneFilter);
-            if (matchesStatus && matchesZone && d.lat && d.lng) {
+            if (matchesStatus && matchesZone && shouldShowOnMap(d)) {
                 bounds.extend({ lat: d.lat, lng: d.lng });
                 hasPoints = true;
             }
@@ -855,8 +964,29 @@ $container = 'container-fluid';
         renderDriversList();
 
         document.getElementById('search-driver-map').addEventListener('input', filterDrivers);
-        document.getElementById('map-status-filter').addEventListener('change', filterDrivers);
-        document.getElementById('map-zone-filter').addEventListener('change', filterDrivers);
+        document.getElementById('map-status-filter').addEventListener('change', () => {
+            setStatusFilter(document.getElementById('map-status-filter').value, { fitMap: true });
+        });
+        document.getElementById('map-zone-filter').addEventListener('change', () => {
+            filterDrivers();
+            if (mapReady) fitVisibleDrivers();
+        });
+
+        document.querySelectorAll('.stat-filter-chip').forEach(chip => {
+            const activate = () => {
+                const status = chip.dataset.status;
+                const current = document.getElementById('map-status-filter').value;
+                // Click again to clear and show all.
+                setStatusFilter(current === status ? 'all' : status, { fitMap: true });
+            };
+            chip.addEventListener('click', activate);
+            chip.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    activate();
+                }
+            });
+        });
 
         document.getElementById('control-zoom-in').addEventListener('click', () => {
             if (map) map.setZoom(map.getZoom() + 1);
@@ -902,23 +1032,18 @@ $container = 'container-fluid';
         const urlParams = new URLSearchParams(window.location.search);
         const driverParam = urlParams.get('driver');
         const orderParam = urlParams.get('order');
-        const defaultDriverId = drivers.length ? drivers[0].id : null;
 
+        // Only select when deep-linked via ?driver= or ?order= — never pre-select on load.
         const pick = () => {
+            let found = null;
             if (driverParam) {
-                const found = drivers.find(d => d.name.toLowerCase() === driverParam.toLowerCase());
-                if (found) selectDriver(found.id);
-                else if (defaultDriverId !== null) selectDriver(defaultDriverId);
+                found = drivers.find(d => d.name.toLowerCase() === driverParam.toLowerCase());
             } else if (orderParam) {
-                const found = drivers.find(d => d.orderId && d.orderId.toLowerCase() === orderParam.toLowerCase());
-                if (found) selectDriver(found.id);
-                else if (defaultDriverId !== null) selectDriver(defaultDriverId);
-            } else if (defaultDriverId !== null) {
-                selectDriver(defaultDriverId);
+                found = drivers.find(d => d.orderId && d.orderId.toLowerCase() === orderParam.toLowerCase());
             }
+            if (found) selectDriver(found.id);
         };
 
-        // List is ready immediately; map fly-to waits for Google callback.
         setTimeout(pick, 300);
     }
 
@@ -936,23 +1061,11 @@ $container = 'container-fluid';
 
         infoWindow = new google.maps.InfoWindow();
 
-        new google.maps.Polygon({
-            paths: cfg.zonePath,
-            strokeColor: '#ff3e1d',
-            strokeOpacity: 0.9,
-            strokeWeight: 2,
-            fillColor: '#ff3e1d',
-            fillOpacity: 0.06,
-            map: map,
-            clickable: true
-        }).addListener('click', () => {
-            infoWindow.setContent('<div style="padding:8px 12px;"><strong>Trivandrum Delivery Zone</strong><br><span style="font-size:0.75rem;color:#8592a3;">Central / North coverage area</span></div>');
-            infoWindow.setPosition(cfg.center);
-            infoWindow.open(map);
-        });
+        drawZoneCircles();
 
         drivers.forEach(d => {
-            if (!d.lat || !d.lng) return;
+            // Plot current/last known location for online & in-transit drivers only.
+            if (!shouldShowOnMap(d)) return;
             markers[d.id] = new DriverMarker(d, map);
         });
 

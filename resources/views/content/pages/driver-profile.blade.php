@@ -544,11 +544,37 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                 <div class="card-body px-4 pb-4 pt-1">
                     <div class="row g-4">
                         @if ($driver['type'] === 'zone')
+                        @php
+                            $isThirdParty = ($driver['partner_type'] ?? 'independent') === 'third-party';
+                        @endphp
                         <!-- Partner Type Choices -->
                         <div class="col-md-6">
                             <label class="form-label text-muted fw-bold mb-3" style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px;">Partner Type</label>
-                            
-                            <!-- Card: Independent Partner -->
+
+                            @if ($isThirdParty)
+                            <div class="partner-card mb-3 p-3 border rounded d-flex align-items-start justify-content-between position-relative active" id="cardPartnerThird" style="background-color: #ffffff; border-color: #ff7a00 !important; border-radius: 12px; transition: all 0.2s ease; cursor: default;">
+                                <div class="d-flex align-items-start gap-3 w-100">
+                                    <div class="partner-icon-box d-flex align-items-center justify-content-center" style="background-color: #fff8f2; color: #ff7a00; width: 44px; height: 44px; border-radius: 10px;">
+                                        <i class="bx bx-buildings" style="font-size: 1.4rem;"></i>
+                                    </div>
+                                    <div>
+                                        <span class="d-block fw-bold text-body" style="font-size: 0.95rem; line-height: 1.2;">Third Party Partner</span>
+                                        <span class="d-block text-muted" style="font-size: 0.8rem; margin-top: 4px; line-height: 1.4;">Partnered via agency / fleet provider.</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="border rounded p-3" style="border-radius: 12px;">
+                                <dl class="row mb-0 small">
+                                    <dt class="col-sm-4 text-muted">Agency</dt>
+                                    <dd class="col-sm-8 fw-semibold">{{ $driver['agency_name'] ?? '—' }}</dd>
+                                    <dt class="col-sm-4 text-muted">Hub</dt>
+                                    <dd class="col-sm-8 fw-semibold">{{ $driver['agency_hub_name'] ?? '—' }}</dd>
+                                    <dt class="col-sm-4 text-muted">Reg. No.</dt>
+                                    <dd class="col-sm-8 fw-semibold">{{ $driver['agency_registration_number'] ?? '—' }}</dd>
+                                </dl>
+                            </div>
+                            @else
                             <div class="partner-card mb-3 p-3 border rounded d-flex align-items-start justify-content-between position-relative active" id="cardPartnerInd" style="background-color: #ffffff; border-color: #ff7a00 !important; border-radius: 12px; transition: all 0.2s ease; cursor: default;">
                                 <div class="d-flex align-items-start gap-3 w-100 pe-4">
                                     <div class="partner-icon-box d-flex align-items-center justify-content-center" style="background-color: #fff8f2; color: #ff7a00; width: 44px; height: 44px; border-radius: 10px;">
@@ -560,6 +586,7 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
                                     </div>
                                 </div>
                             </div>
+                            @endif
                         </div>
                         
                         <!-- Assigned Service Areas -->
@@ -1531,7 +1558,7 @@ $backUrl = $backType === 'zone' ? route('fleet-drivers-zone') : route('fleet-dri
         });
     }
 
-    // Partner Type is fixed as Independent
+    // Partner type is display-only on profile (change via Edit on drivers list).
     function selectPartnerType(type, silent = false) {}
 </script>
 @endsection

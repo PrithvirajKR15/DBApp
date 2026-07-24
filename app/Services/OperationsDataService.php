@@ -361,12 +361,12 @@ class OperationsDataService
     public function findOrderForDetail(string $code): ?array
     {
         $decoded = urldecode($code);
-        $order = Order::with(['store', 'driver.user'])
+        $order = Order::with(['store', 'driver.user', 'detail', 'timelineSteps'])
             ->whereRaw('LOWER(code) = ?', [Str::lower($decoded)])
             ->first();
 
         if ($order) {
-            return $this->shapeBoardOrder($order);
+            return $this->shapeBoardOrder($order, true);
         }
 
         return $this->findBatchOrder($decoded);
@@ -439,6 +439,58 @@ class OperationsDataService
             'locality' => $stop->locality,
             'lat' => $stop->lat,
             'lng' => $stop->lng,
+            'eta' => null,
+            'distance_km' => null,
+            'pincode' => null,
+            'detail' => [
+                'customer_id' => null,
+                'vip' => false,
+                'phone_alt' => null,
+                'avatar' => '1.png',
+                'landmark' => null,
+                'instructions' => null,
+                'preferred_time' => '10:00–12:00 Today',
+                'placed_full' => '09:00 AM',
+                'packages' => null,
+                'distance' => null,
+                'eta' => null,
+                'weight' => null,
+                'card_last4' => null,
+                'order_value' => (float) $stop->value,
+            ],
+            'products' => [],
+            'timeline' => [],
+            'map' => $this->shapeBatchStopMap($stop, $batch),
+        ];
+    }
+
+    /**
+     * @param  DeliveryBatch|null  $batch
+     * @return array{lat: float, lng: float, store_lat: float, store_lng: float}
+     */
+    protected function shapeBatchStopMap(DeliveryBatchStop $stop, ?DeliveryBatch $batch): array
+    {
+        $coverage = app(ZoneCoverageService::class);
+        $area = $batch?->zone_key ? Str::title($batch->zone_key) : ($batch?->zone ?? null);
+        [$lat, $lng] = $coverage->resolveCoordinates(
+            $stop->lat !== null ? (float) $stop->lat : null,
+            $stop->lng !== null ? (float) $stop->lng : null,
+            null,
+            $area
+        );
+
+        $storeLat = $batch?->store?->lat !== null
+            ? (float) $batch->store->lat
+            : ($batch?->hub_lat !== null ? (float) $batch->hub_lat : $lat + 0.012);
+        $storeLng = $batch?->store?->lng !== null
+            ? (float) $batch->store->lng
+            : ($batch?->hub_lng !== null ? (float) $batch->hub_lng : $lng - 0.008);
+
+        return [
+            'lat' => $lat,
+            'lng' => $lng,
+            'store_lat' => $storeLat,
+            'store_lng' => $storeLng,
         ];
     }
 
@@ -455,7 +507,7 @@ class OperationsDataService
     /**
      * @return array<string, mixed>
      */
-    protected function shapeBoardOrder(Order $order): array
+    protected function shapeBoardOrder(Order $order, bool $withDetail = false): array
     {
         $views = $order->views ?? [];
         $requestPending = in_array('request_pending', $views, true);
@@ -472,7 +524,7 @@ class OperationsDataService
             ];
         }
 
-        return [
+        $shaped = [
             'id' => $order->code,
             'placed_at' => $order->placed_at,
             'customer' => $order->customer,
@@ -497,7 +549,130 @@ class OperationsDataService
             'zone_key' => $order->zone_key,
             'lat' => $order->lat,
             'lng' => $order->lng,
+            'eta' => $order->eta,
+            'distance_km' => $order->distance_km !== null ? (float) $order->distance_km : null,
+            'pincode' => $order->pincode,
         ];
+
+        if ($withDetail) {
+            $shaped['detail'] = $this->shapeOrderDetail($order);
+            $shaped['products'] = $this->shapeOrderProducts($order);
+            $shaped['timeline'] = $this->shapeOrderTimeline($order);
+            $shaped['map'] = $this->shapeOrderMap($order);
+        }
+
+        return $shaped;
+    }
+
+    /**
+     * Drop-off + store markers for the order-detail map.
+     *
+     * @return array{lat: float, lng: float, store_lat: float, store_lng: float}
+     */
+    protected function shapeOrderMap(Order $order): array
+    {
+        $coverage = app(ZoneCoverageService::class);
+        [$lat, $lng] = $coverage->resolveCoordinates(
+            $order->lat !== null ? (float) $order->lat : null,
+            $order->lng !== null ? (float) $order->lng : null,
+            $order->pincode,
+            $order->area
+        );
+
+        $storeLat = $order->store?->lat !== null ? (float) $order->store->lat : ($lat + 0.012);
+        $storeLng = $order->store?->lng !== null ? (float) $order->store->lng : ($lng - 0.008);
+
+        return [
+            'lat' => $lat,
+            'lng' => $lng,
+            'store_lat' => $storeLat,
+            'store_lng' => $storeLng,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function shapeOrderDetail(Order $order): array
+    {
+        $row = $order->detail;
+        $slot = trim(($order->slot ?? '').' '.($order->slot_label ?? 'Today'));
+
+        return [
+            'customer_id' => $row?->customer_code,
+            'vip' => (bool) ($row?->vip ?? false),
+            'phone_alt' => $row?->phone_alt,
+            'avatar' => $row?->avatar ?: '1.png',
+            'landmark' => $row?->landmark,
+            'instructions' => $row?->instructions,
+            'preferred_time' => $slot !== '' ? $slot : null,
+            'placed_full' => $order->placed_at
+                ? (now()->format('M j, Y').' · '.$order->placed_at)
+                : null,
+            'packages' => $row?->packages,
+            'distance' => $order->distance_km !== null
+                ? rtrim(rtrim(number_format((float) $order->distance_km, 1), '0'), '.').' km'
+                : null,
+            'eta' => $order->eta,
+            'weight' => $row?->weight,
+            'card_last4' => $row?->card_last4,
+            'order_value' => (float) $order->value,
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    protected function shapeOrderProducts(Order $order): array
+    {
+        $items = $order->line_items ?? [];
+
+        return array_values(array_map(function (array $item) {
+            return [
+                'name' => $item['name'] ?? ($item['code'] ?? 'Item'),
+                'category' => $item['category'] ?? '',
+                'sku' => $item['code'] ?? $item['sku'] ?? '',
+                'qty' => (string) ($item['qty'] ?? $item['quantity'] ?? 1),
+                'unit' => $item['unit'] ?? '',
+                'price' => (float) ($item['price'] ?? 0),
+                'status' => $item['status'] ?? 'Pending',
+                'icon' => $item['icon'] ?? 'bx-package',
+            ];
+        }, $items));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    protected function shapeOrderTimeline(Order $order): array
+    {
+        $steps = $order->relationLoaded('timelineSteps')
+            ? $order->timelineSteps
+            : $order->timelineSteps()->orderBy('sort_order')->get();
+
+        if ($steps->isEmpty()) {
+            return [];
+        }
+
+        $mapped = $steps->map(fn ($step) => [
+            'key' => $step->step_key,
+            'label' => $step->label,
+            'time' => $step->occurred_at,
+            'done' => (bool) $step->is_done,
+            'current' => (bool) $step->is_current,
+        ])->values()->all();
+
+        $hasCurrent = collect($mapped)->contains(fn ($s) => ! empty($s['current']));
+        if (! $hasCurrent) {
+            foreach ($mapped as $i => $step) {
+                if (! $step['done']) {
+                    $mapped[$i]['current'] = true;
+                    break;
+                }
+            }
+        }
+
+        return $mapped;
     }
 
     /**

@@ -439,6 +439,40 @@ $type = $driverType ?? 'store';
     .app-toast.is-leaving {
         animation: app-toast-out 0.22s ease forwards;
     }
+
+    .partner-type-card {
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        background: #ffffff;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 12px 14px;
+        height: 100%;
+    }
+    .partner-type-card:hover {
+        border-color: rgba(255, 122, 0, 0.45);
+        background: #fffaf6;
+    }
+    .partner-type-card.active {
+        border-color: #ff7a00 !important;
+        background: #fff8f2;
+        box-shadow: 0 0 0 1px rgba(255, 122, 0, 0.15);
+    }
+    .partner-type-card .partner-type-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #f1f5f9;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .partner-type-card.active .partner-type-icon {
+        background: #fff0e6;
+        color: #ff7a00;
+    }
     .app-toast__icon {
         width: 24px;
         height: 24px;
@@ -487,7 +521,7 @@ $zonesList = $zones ?? collect();
 <!-- Page Header Section -->
 <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
     <div class="d-flex align-items-center gap-2">
-        <h3 class="mb-0 fw-bold text-body" style="font-size: 1.6rem; font-family: 'Public Sans', sans-serif;" id="page-main-title">Store Drivers</h3>
+        <h3 class="mb-0 fw-bold text-body" style="font-size: 1.6rem; font-family: 'Public Sans', sans-serif;" id="page-main-title">{{ $type === 'store' ? 'Store Drivers' : 'Zone-wise Drivers' }}</h3>
         <span class="badge rounded-pill badge-orange-light" id="header-total-badge" style="font-size: 0.8rem; font-weight: 600; padding: 6px 12px;">0 Total</span>
     </div>
     <div class="d-flex align-items-center gap-3">
@@ -624,9 +658,9 @@ $zonesList = $zones ?? collect();
 </div>
 
 <!-- Table Header Stats Info -->
-<div class="d-flex align-items-center justify-content-between mb-3 px-1">
+<div class="d-flex align-items-center justify-content-between mb-3 px-1 flex-wrap gap-2">
     <div class="text-muted" style="font-size: 0.88rem;" id="showing-text">
-        Showing <span class="fw-semibold text-body" id="showing-range">1-9</span> of <span class="fw-semibold text-body" id="showing-total">0</span> drivers
+        Showing <span class="fw-semibold text-body" id="showing-range">0</span> of <span class="fw-semibold text-body" id="showing-total">0</span> drivers
     </div>
     <div class="d-flex align-items-center gap-2">
         <!-- List / Grid View Toggles -->
@@ -696,6 +730,7 @@ $zonesList = $zones ?? collect();
                         <th class="fw-bold">Driver ID</th>
                         <th class="fw-bold">Status</th>
                         <th class="fw-bold" id="table-header-location">Assigned Store</th>
+                        <th class="fw-bold" id="table-header-partner" style="display: none;">Partner</th>
                         <th class="fw-bold">Rating</th>
                         <th class="fw-bold">Deliveries</th>
                         <th class="fw-bold">Joined</th>
@@ -713,6 +748,11 @@ $zonesList = $zones ?? collect();
 <!-- Grid View Container (Cards) - Hidden by default -->
 <div id="grid-view-container" class="row d-none">
     <!-- Loaded dynamically via JavaScript -->
+</div>
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 px-1" id="drivers-pagination-wrap">
+    <div class="text-muted small" id="drivers-pagination-info"></div>
+    <ul class="pagination pagination-sm mb-0" id="drivers-pagination"></ul>
 </div>
 
 <!-- Add / Edit Driver Modal (Figma Styled Tabs) -->
@@ -845,6 +885,71 @@ $zonesList = $zones ?? collect();
                                     <input type="text" class="form-control border-0 bg-transparent ps-2" id="driver-address" placeholder="Street address, city, state, ZIP" style="box-shadow: none; font-size: 0.88rem; height: 38px;">
                                 </div>
                             </div>
+
+                            @if ($type === 'zone')
+                            <!-- Partner Type (Independent / Third Party) -->
+                            <div class="mb-3" id="partner-type-section">
+                                <label class="form-label text-body fw-semibold mb-2">Select Partner Type <span class="text-danger">*</span></label>
+                                <div class="row g-2">
+                                    <div class="col-sm-6">
+                                        <div class="partner-type-card active" id="modalCardPartnerInd" onclick="selectModalPartnerType('independent')" role="button" tabindex="0">
+                                            <div class="d-flex align-items-start gap-2">
+                                                <div class="partner-type-icon">
+                                                    <i class="bx bx-user" style="font-size: 1.15rem;"></i>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <div class="d-flex align-items-center justify-content-between gap-2">
+                                                        <span class="fw-bold text-body" style="font-size: 0.9rem;">Independent</span>
+                                                        <input class="form-check-input m-0" type="radio" name="modalPartnerType" id="modalPartnerTypeInd" value="independent" checked onclick="event.stopPropagation(); selectModalPartnerType('independent')">
+                                                    </div>
+                                                    <small class="text-muted d-block mt-1" style="font-size: 0.75rem; line-height: 1.35;">Direct contractor on their own schedule.</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="partner-type-card" id="modalCardPartnerThird" onclick="selectModalPartnerType('third-party')" role="button" tabindex="0">
+                                            <div class="d-flex align-items-start gap-2">
+                                                <div class="partner-type-icon">
+                                                    <i class="bx bx-buildings" style="font-size: 1.15rem;"></i>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <div class="d-flex align-items-center justify-content-between gap-2">
+                                                        <span class="fw-bold text-body" style="font-size: 0.9rem;">Third Party</span>
+                                                        <input class="form-check-input m-0" type="radio" name="modalPartnerType" id="modalPartnerTypeThird" value="third-party" onclick="event.stopPropagation(); selectModalPartnerType('third-party')">
+                                                    </div>
+                                                    <small class="text-muted d-block mt-1" style="font-size: 0.75rem; line-height: 1.35;">Partnered via Rapido, Uber, Zwiggy, etc.</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Agency details (Third Party only) -->
+                            <div id="modal-agency-fields" style="display: none;">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="modalDriverAgency" class="form-label text-body fw-semibold">Agency <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="modalDriverAgency" style="border-radius: 8px; font-size: 0.88rem; height: 38px;">
+                                            <option value="" disabled selected>Select agency</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mt-3 mt-md-0">
+                                        <label for="modalDriverAgencyBranch" class="form-label text-body fw-semibold">Agency Hub <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="modalDriverAgencyBranch" style="border-radius: 8px; font-size: 0.88rem; height: 38px;" disabled>
+                                            <option value="" disabled selected>Select agency first</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="modalDriverAgencyRegNo" class="form-label text-body fw-semibold">Registration Number <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="modalDriverAgencyRegNo" placeholder="e.g. RPD-987654" style="border-radius: 8px; font-size: 0.88rem; height: 38px;">
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
 
                             <!-- Assigned Store/Zone & Shift Timing -->
                             <div class="row mb-3">
@@ -1287,12 +1392,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Drivers loaded via AJAX from the list endpoint
     let allDrivers = [];
+    let currentDriversPage = 1;
+    const driversPerPage = 10;
     const selectedDriverIds = new Set();
     
     // Dynamic page type passed from Laravel route ('store' or 'zone')
     const pageType = "{{ $type }}";
+    const isExecutiveContext = @json((bool) ($isExecutiveContext ?? false));
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const zoneAreas = @json(($zonesList ?? collect())->map(fn ($zone) => ['id' => $zone->id, 'code' => $zone->code, 'name' => $zone->name])->values());
+    const branchesForZoneUrl = @json(route('agencies.branches-for-zone'));
     const driverApiRoutes = pageType === 'store'
         ? {
             list: @json(route('fleet-drivers-store.list')),
@@ -1302,11 +1411,11 @@ document.addEventListener('DOMContentLoaded', function () {
             status: @json(url('/fleet/drivers/store/__CODE__/status')),
         }
         : {
-            list: @json(route('fleet-drivers-zone.list')),
-            store: @json(route('fleet-drivers-zone.store')),
-            update: @json(url('/fleet/drivers/zone/__CODE__/update')),
-            destroy: @json(url('/fleet/drivers/zone/__CODE__')),
-            status: @json(url('/fleet/drivers/zone/__CODE__/status')),
+            list: @json($listUrl ?? route('fleet-drivers-zone.list')),
+            store: @json($createUrl ?? route('fleet-drivers-zone.store')),
+            update: @json($updateUrlTemplate ?? url('/fleet/drivers/zone/__CODE__/update')),
+            destroy: @json($deleteUrlTemplate ?? url('/fleet/drivers/zone/__CODE__')),
+            status: @json($statusUrlTemplate ?? url('/fleet/drivers/zone/__CODE__/status')),
         };
 
     const DOCUMENT_FIELD_IDS = [
@@ -1378,11 +1487,11 @@ document.addEventListener('DOMContentLoaded', function () {
             getSelectedServiceAreaCodes().forEach((code) => formData.append('service_areas[]', code));
 
             let partnerType = 'independent';
-            const radInd = document.getElementById('modalPartnerTypeInd');
-            if (radInd && !radInd.checked) {
+            const radThird = document.getElementById('modalPartnerTypeThird');
+            if (radThird && radThird.checked) {
                 partnerType = 'third-party';
-                appendValue('agency_name', document.getElementById('modalDriverAgencyName')?.value?.trim() || '');
-                appendValue('agency_id', document.getElementById('modalDriverAgencyId')?.value?.trim() || '');
+                appendValue('agency_branch_id', document.getElementById('modalDriverAgencyBranch')?.value || '');
+                appendValue('agency_registration_number', document.getElementById('modalDriverAgencyRegNo')?.value?.trim() || '');
             }
             appendValue('partner_type', partnerType);
         }
@@ -1669,26 +1778,69 @@ document.addEventListener('DOMContentLoaded', function () {
             return 0;
         });
 
+        const totalFiltered = filtered.length;
+        const lastPage = Math.max(1, Math.ceil(totalFiltered / driversPerPage) || 1);
+        if (currentDriversPage > lastPage) currentDriversPage = lastPage;
+        if (currentDriversPage < 1) currentDriversPage = 1;
+        const startIdx = (currentDriversPage - 1) * driversPerPage;
+        const pageItems = filtered.slice(startIdx, startIdx + driversPerPage);
+
         // Set showing range text
-        if (filtered.length === 0) {
+        if (totalFiltered === 0) {
             document.getElementById('showing-range').textContent = '0';
         } else {
-            document.getElementById('showing-range').textContent = `1-${filtered.length}`;
+            const from = startIdx + 1;
+            const to = Math.min(startIdx + pageItems.length, totalFiltered);
+            document.getElementById('showing-range').textContent = `${from}-${to}`;
+        }
+        document.getElementById('showing-total').textContent = totalFiltered;
+
+        const pagInfo = document.getElementById('drivers-pagination-info');
+        const pagUl = document.getElementById('drivers-pagination');
+        if (pagInfo && pagUl) {
+            if (totalFiltered === 0) {
+                pagInfo.textContent = '';
+                pagUl.innerHTML = '';
+            } else {
+                pagInfo.textContent = `Page ${currentDriversPage} of ${lastPage}`;
+                let html = `
+                  <li class="page-item ${currentDriversPage <= 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="javascript:void(0)" data-drivers-page="${currentDriversPage - 1}">Prev</a>
+                  </li>`;
+                for (let i = 1; i <= lastPage; i++) {
+                    if (lastPage > 7 && Math.abs(i - currentDriversPage) > 1 && i !== 1 && i !== lastPage) {
+                        if (i === 2 || i === lastPage - 1) {
+                            html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+                        }
+                        continue;
+                    }
+                    html += `
+                      <li class="page-item ${i === currentDriversPage ? 'active' : ''}">
+                        <a class="page-link" href="javascript:void(0)" data-drivers-page="${i}">${i}</a>
+                      </li>`;
+                }
+                html += `
+                  <li class="page-item ${currentDriversPage >= lastPage ? 'disabled' : ''}">
+                    <a class="page-link" href="javascript:void(0)" data-drivers-page="${currentDriversPage + 1}">Next</a>
+                  </li>`;
+                pagUl.innerHTML = html;
+            }
         }
 
         // Render List View
         const tbody = document.getElementById('drivers-tbody');
-        if (filtered.length === 0) {
+        const colCount = pageType === 'zone' ? 10 : 9;
+        if (totalFiltered === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="text-center py-5 text-muted">
+                    <td colspan="${colCount}" class="text-center py-5 text-muted">
                         <i class="bx bx-info-circle fs-3 mb-2 d-block"></i>
                         No drivers found matching criteria
                     </td>
                 </tr>
             `;
         } else {
-            tbody.innerHTML = filtered.map(d => {
+            tbody.innerHTML = pageItems.map(d => {
                 const ratingHtml = d.rating === '—' ? 
                     `<span class="text-muted d-flex align-items-center gap-1" style="font-size: 0.88rem; font-weight: 500;">
                         <i class="bx bx-star text-muted"></i> —
@@ -1702,6 +1854,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const statusLabel = formatStatusLabel(shownStatus);
                 const avatarSrc = resolveAvatarUrl(d.avatar);
                 const locationText = pageType === 'store' ? escapeHtml(d.store) : escapeHtml(d.zone);
+                const isThirdParty = d.partner_type === 'third-party';
+                const partnerText = isThirdParty
+                    ? escapeHtml(d.agency_name || 'Third Party')
+                    : 'Independent';
+                const partnerCell = pageType === 'zone'
+                    ? `<td style="padding: 14px 20px; vertical-align: middle;">
+                            <span class="badge ${isThirdParty ? 'bg-label-primary' : 'bg-label-secondary'}" style="font-size: 0.78rem; font-weight: 600;">
+                                ${partnerText}
+                            </span>
+                       </td>`
+                    : '';
                 
                 return `
                     <tr class="driver-row border-bottom" id="row-${d.id}">
@@ -1733,6 +1896,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td style="padding: 14px 20px; vertical-align: middle;">
                             <span class="text-body fw-semibold" style="font-size: 0.88rem;">${locationText}</span>
                         </td>
+                        ${partnerCell}
                         <td style="padding: 14px 20px; vertical-align: middle;">
                             ${ratingHtml}
                         </td>
@@ -1763,7 +1927,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Render Grid View
         const gridContainer = document.getElementById('grid-view-container');
-        if (filtered.length === 0) {
+        if (totalFiltered === 0) {
             gridContainer.innerHTML = `
                 <div class="col-12 text-center py-5 text-muted card shadow-none border m-3">
                     <i class="bx bx-info-circle fs-3 mb-2 d-block"></i>
@@ -1771,7 +1935,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
             `;
         } else {
-            gridContainer.innerHTML = filtered.map(d => {
+            gridContainer.innerHTML = pageItems.map(d => {
                 const ratingHtml = d.rating === '—' ? 
                     `<span class="text-muted"><i class="bx bx-star me-1"></i>—</span>` :
                     `<span class="text-warning fw-bold"><i class="bx bxs-star me-1" style="color: #ffab00;"></i>${d.rating}</span>`;
@@ -1782,6 +1946,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 const avatarSrc = resolveAvatarUrl(d.avatar);
                 const locationLabel = pageType === 'store' ? 'Store:' : 'Zone:';
                 const locationText = pageType === 'store' ? escapeHtml(d.store) : escapeHtml(d.zone);
+                const isThirdParty = d.partner_type === 'third-party';
+                const partnerText = isThirdParty
+                    ? escapeHtml(d.agency_name || 'Third Party')
+                    : 'Independent';
+                const partnerRow = pageType === 'zone'
+                    ? `<div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Partner:</span>
+                            <span class="fw-semibold text-body">${partnerText}</span>
+                       </div>`
+                    : '';
                 
                 return `
                     <div class="col-sm-6 col-md-4 col-lg-3 mb-4">
@@ -1814,6 +1988,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         <span class="text-muted">${locationLabel}</span>
                                         <span class="fw-semibold text-body">${locationText}</span>
                                     </div>
+                                    ${partnerRow}
                                     <div class="d-flex justify-content-between mb-1">
                                         <span class="text-muted">Deliveries:</span>
                                         <span class="fw-bold text-body">${formatNumber(d.deliveries)}</span>
@@ -1892,17 +2067,31 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         
         document.getElementById('current-sort-label').textContent = sortLabelText;
+        currentDriversPage = 1;
         renderDrivers();
     };
 
     // Search and status pills filters listeners
-    document.getElementById('search-driver').addEventListener('input', renderDrivers);
+    document.getElementById('search-driver').addEventListener('input', () => {
+        currentDriversPage = 1;
+        renderDrivers();
+    });
+
+    document.getElementById('drivers-pagination')?.addEventListener('click', (e) => {
+        const link = e.target.closest('[data-drivers-page]');
+        if (!link || link.closest('.disabled, .active')) return;
+        const page = Number(link.dataset.driversPage);
+        if (!page || page < 1) return;
+        currentDriversPage = page;
+        renderDrivers();
+    });
 
     const filterPills = document.querySelectorAll('.filter-pill');
     filterPills.forEach(pill => {
         pill.addEventListener('click', function () {
             filterPills.forEach(p => p.classList.remove('active'));
             this.classList.add('active');
+            currentDriversPage = 1;
             renderDrivers();
         });
     });
@@ -2094,6 +2283,8 @@ document.addEventListener('DOMContentLoaded', function () {
         
         document.getElementById('page-main-title').textContent = 'Store Drivers';
         document.getElementById('table-header-location').textContent = 'Assigned Store';
+        const partnerHeader = document.getElementById('table-header-partner');
+        if (partnerHeader) partnerHeader.style.display = 'none';
     } else {
         document.getElementById('zone-select-container').style.display = 'block';
         document.getElementById('driver-zone').setAttribute('required', 'true');
@@ -2102,11 +2293,194 @@ document.addEventListener('DOMContentLoaded', function () {
         
         document.getElementById('page-main-title').textContent = 'Zone-wise Drivers';
         document.getElementById('table-header-location').textContent = 'Assigned Zone';
+        const partnerHeader = document.getElementById('table-header-partner');
+        if (partnerHeader) partnerHeader.style.display = '';
     }
     
-    // Partner Type selection modal handling
-    // Partner Type selection modal handling is obsolete since all drivers are independent
-    window.selectModalPartnerType = function(type) {};
+    // Partner Type selection (Independent / Third Party) for zone drivers
+    window.selectModalPartnerType = function(type, options = {}) {
+        if (isExecutiveContext) {
+            type = 'third-party';
+        }
+        const isThirdParty = type === 'third-party';
+        const radInd = document.getElementById('modalPartnerTypeInd');
+        const radThird = document.getElementById('modalPartnerTypeThird');
+        const cardInd = document.getElementById('modalCardPartnerInd');
+        const cardThird = document.getElementById('modalCardPartnerThird');
+        const agencyFields = document.getElementById('modal-agency-fields');
+        const agencySelect = document.getElementById('modalDriverAgency');
+        const agencyBranch = document.getElementById('modalDriverAgencyBranch');
+        const agencyRegNo = document.getElementById('modalDriverAgencyRegNo');
+
+        if (radInd) radInd.checked = !isThirdParty;
+        if (radThird) radThird.checked = isThirdParty;
+        if (cardInd) {
+            cardInd.classList.toggle('active', !isThirdParty);
+            cardInd.style.display = isExecutiveContext ? 'none' : '';
+        }
+        if (cardThird) cardThird.classList.toggle('active', isThirdParty);
+
+        if (agencyFields) {
+            agencyFields.style.display = isThirdParty ? '' : 'none';
+        }
+        if (agencySelect) {
+            agencySelect.required = isThirdParty;
+            if (!isThirdParty) {
+                agencySelect.value = '';
+                agencySelect.selectedIndex = 0;
+            }
+        }
+        if (agencyBranch) {
+            agencyBranch.required = isThirdParty;
+            if (!isThirdParty) {
+                resetHubSelect();
+            }
+        }
+        if (agencyRegNo) {
+            agencyRegNo.required = isThirdParty;
+            if (!isThirdParty) agencyRegNo.value = '';
+        }
+
+        if (isThirdParty && options.skipAgencyLoad !== true) {
+            const zoneId = options.zoneId ?? (document.getElementById('driver-zone')?.value || '');
+            refreshAgenciesForDriverForm(zoneId, options.agencyId || null, options.branchId || null);
+        }
+    };
+
+    function resetHubSelect(placeholder = 'Select agency first') {
+        const select = document.getElementById('modalDriverAgencyBranch');
+        if (!select) return;
+        select.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+        select.disabled = true;
+        select.value = '';
+    }
+
+    async function refreshAgenciesForDriverForm(zoneId = '', selectedAgencyId = null, selectedBranchId = null) {
+        const agencySelect = document.getElementById('modalDriverAgency');
+        if (!agencySelect) return;
+
+        const params = new URLSearchParams();
+        if (zoneId) params.set('zone_id', zoneId);
+
+        try {
+            const res = await fetch(`${branchesForZoneUrl}?${params}`, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            const data = await res.json();
+            const agencies = data.agencies || [];
+
+            agencySelect.innerHTML = '<option value="" disabled selected>Select agency</option>';
+            agencies.forEach((agency) => {
+                const opt = document.createElement('option');
+                opt.value = agency.id;
+                opt.textContent = agency.name || `Agency #${agency.id}`;
+                agencySelect.appendChild(opt);
+            });
+
+            let agencyId = selectedAgencyId;
+            if (!agencyId && isExecutiveContext && agencies.length === 1) {
+                agencyId = agencies[0].id;
+            }
+
+            if (agencyId && [...agencySelect.options].some((o) => String(o.value) === String(agencyId))) {
+                agencySelect.value = String(agencyId);
+                await refreshHubsForAgency(agencyId, zoneId, selectedBranchId);
+            } else {
+                resetHubSelect(agencies.length ? 'Select agency hub' : 'No agencies available');
+                if (!agencies.length) {
+                    agencySelect.innerHTML = '<option value="" disabled selected>No agencies available</option>';
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load agencies', e);
+            agencySelect.innerHTML = '<option value="" disabled selected>Failed to load agencies</option>';
+            resetHubSelect();
+        }
+    }
+
+    async function refreshHubsForAgency(agencyId, zoneId = '', selectedBranchId = null) {
+        const select = document.getElementById('modalDriverAgencyBranch');
+        if (!select) return;
+
+        if (!agencyId) {
+            resetHubSelect();
+            return;
+        }
+
+        const params = new URLSearchParams({ agency_id: String(agencyId) });
+        if (zoneId) params.set('zone_id', zoneId);
+
+        try {
+            const res = await fetch(`${branchesForZoneUrl}?${params}`, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            const data = await res.json();
+            const branches = data.branches || [];
+
+            select.innerHTML = '<option value="" disabled selected>Select agency hub</option>';
+            branches.forEach((branch) => {
+                const opt = document.createElement('option');
+                opt.value = branch.id;
+                opt.dataset.zoneIds = JSON.stringify(branch.zone_ids || []);
+                const zonesLabel = branch.zone_names ? ` (${branch.zone_names})` : '';
+                opt.textContent = `${branch.name}${zonesLabel}`;
+                select.appendChild(opt);
+            });
+            select.disabled = branches.length === 0;
+
+            if (!branches.length) {
+                select.innerHTML = '<option value="" disabled selected>No hubs for this agency</option>';
+            } else if (selectedBranchId && [...select.options].some((o) => String(o.value) === String(selectedBranchId))) {
+                select.value = String(selectedBranchId);
+            }
+
+            filterZonesForSelectedHub();
+        } catch (e) {
+            console.warn('Failed to load agency hubs', e);
+            select.innerHTML = '<option value="" disabled selected>Failed to load hubs</option>';
+            select.disabled = true;
+        }
+    }
+
+    function filterZonesForSelectedHub() {
+        const branchSelect = document.getElementById('modalDriverAgencyBranch');
+        const zoneSelect = document.getElementById('driver-zone');
+        if (!branchSelect || !zoneSelect || !isExecutiveContext) return;
+
+        const selected = branchSelect.options[branchSelect.selectedIndex];
+        let allowed = [];
+        try {
+            allowed = JSON.parse(selected?.dataset?.zoneIds || '[]').map(String);
+        } catch (_) {
+            allowed = [];
+        }
+
+        [...zoneSelect.options].forEach((opt) => {
+            if (!opt.value) return;
+            opt.hidden = allowed.length > 0 && !allowed.includes(String(opt.value));
+            opt.disabled = opt.hidden;
+        });
+
+        if (zoneSelect.value && allowed.length && !allowed.includes(String(zoneSelect.value))) {
+            zoneSelect.value = '';
+        }
+    }
+
+    document.getElementById('driver-zone')?.addEventListener('change', function () {
+        const agencySelect = document.getElementById('modalDriverAgency');
+        const isThirdParty = document.getElementById('modalPartnerTypeThird')?.checked;
+        if (!isThirdParty && !isExecutiveContext) return;
+        refreshAgenciesForDriverForm(this.value, agencySelect?.value || null);
+    });
+
+    document.getElementById('modalDriverAgency')?.addEventListener('change', function () {
+        const zoneId = document.getElementById('driver-zone')?.value || '';
+        refreshHubsForAgency(this.value, zoneId);
+    });
+
+    document.getElementById('modalDriverAgencyBranch')?.addEventListener('change', function () {
+        filterZonesForSelectedHub();
+    });
 
     // Modal forms opening and action handling
     const driverModalEl = document.getElementById('driverModal');
@@ -2305,11 +2679,15 @@ document.addEventListener('DOMContentLoaded', function () {
         
         if (!isStore) {
             updateServiceAreaCheckboxes('', []);
-            selectModalPartnerType('independent');
-            const agencyName = document.getElementById('modalDriverAgencyName');
-            if (agencyName) agencyName.value = '';
-            const agencyId = document.getElementById('modalDriverAgencyId');
-            if (agencyId) agencyId.value = '';
+            selectModalPartnerType(isExecutiveContext ? 'third-party' : 'independent');
+            const agencySelect = document.getElementById('modalDriverAgency');
+            if (agencySelect) {
+                agencySelect.value = '';
+                agencySelect.selectedIndex = 0;
+            }
+            resetHubSelect();
+            const agencyRegNo = document.getElementById('modalDriverAgencyRegNo');
+            if (agencyRegNo) agencyRegNo.value = '';
         }
 
         driverModal.show();
@@ -2399,13 +2777,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const secondaryAreas = (driver.service_areas || []).filter((key) => key !== primaryKey);
             updateServiceAreaCheckboxes(driver.zone_id || driver.zone, secondaryAreas);
             
-            const partnerType = driver.partner_type || 'independent';
-            selectModalPartnerType(partnerType);
-            
-            const agencyNameInput = document.getElementById('modalDriverAgencyName');
-            const agencyIdInput = document.getElementById('modalDriverAgencyId');
-            if (agencyNameInput) agencyNameInput.value = driver.agency_name || '';
-            if (agencyIdInput) agencyIdInput.value = driver.agency_id || '';
+            const partnerType = isExecutiveContext ? 'third-party' : (driver.partner_type || 'independent');
+            selectModalPartnerType(partnerType, {
+                zoneId: driver.zone_id || '',
+                agencyId: driver.agency_id || null,
+                branchId: driver.agency_branch_id || null,
+            });
+
+            const agencyRegNoInput = document.getElementById('modalDriverAgencyRegNo');
+            if (agencyRegNoInput) agencyRegNoInput.value = driver.agency_registration_number || '';
             setDocumentFieldsRequired(false);
         }
 

@@ -34,6 +34,11 @@ class DashboardController extends Controller
     return view('content.dashboard.store-dashboard');
   }
 
+  public function executive()
+  {
+    return redirect()->route('executive-dashboard');
+  }
+
   public function user()
   {
     return view('content.dashboard.user-dashboard');

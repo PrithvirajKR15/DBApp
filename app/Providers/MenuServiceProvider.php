@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\DriverService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -26,9 +27,25 @@ class MenuServiceProvider extends ServiceProvider
                 file_get_contents(base_path('resources/menu/verticalMenu.json'))
             );
 
+            $roleSlug = Auth::user()?->role?->slug ?? 'admin';
+
+            $verticalMenuData->menu = array_values(array_filter(
+                $verticalMenuData->menu,
+                function ($item) use ($roleSlug) {
+                    $roles = $item->roles ?? null;
+                    if ($roles === null || $roles === []) {
+                        return true;
+                    }
+
+                    return in_array($roleSlug, $roles, true);
+                }
+            ));
+
             $pendingApprovals = 0;
             try {
-                $pendingApprovals = app(DriverService::class)->countApprovalDriversByStatus('Pending');
+                if ($roleSlug === 'admin') {
+                    $pendingApprovals = app(DriverService::class)->countApprovalDriversByStatus('Pending');
+                }
             } catch (\Throwable) {
                 // Keep menu usable during install / migrate when DB is unavailable.
             }

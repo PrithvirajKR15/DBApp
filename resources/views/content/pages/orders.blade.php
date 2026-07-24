@@ -619,6 +619,11 @@ $paymentLabels = [
     </div>
 </div>
 
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 px-1" id="orders-pagination-wrap">
+    <div class="text-muted small" id="orders-pagination-info"></div>
+    <ul class="pagination pagination-sm mb-0" id="orders-pagination"></ul>
+</div>
+
 <!-- Choose Driver Modal -->
 <div class="modal fade" id="chooseDriverModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -788,6 +793,8 @@ document.addEventListener('DOMContentLoaded', function () {
     let activeMetricDelivery = '';
     let currentAssignRow = null;
     let currentAssignStoreId = null;
+    let currentOrdersPage = 1;
+    const ordersPerPage = 10;
 
     function filterDriversForAssign(storeId) {
         const q = (document.getElementById('search-drivers-modal').value || '').toLowerCase();
@@ -828,6 +835,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             activeView = this.dataset.view;
+            currentOrdersPage = 1;
             filterOrders();
         });
     });
@@ -846,6 +854,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 activeMetricDelivery = key;
                 document.getElementById('filter-delivery').value = key;
             }
+            currentOrdersPage = 1;
             filterOrders();
         });
     });
@@ -853,8 +862,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Filter inputs
     ['search-orders', 'filter-date', 'filter-store', 'filter-delivery', 'filter-prep', 'filter-payment', 'filter-area', 'filter-slot', 'filter-driver-type'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('input', filterOrders);
-        if (el) el.addEventListener('change', filterOrders);
+        if (el) el.addEventListener('input', () => { currentOrdersPage = 1; filterOrders(); });
+        if (el) el.addEventListener('change', () => { currentOrdersPage = 1; filterOrders(); });
     });
 
     const filterDeliveryEl = document.getElementById('filter-delivery');
@@ -872,6 +881,44 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function renderOrdersPagination(totalFiltered, lastPage) {
+        const pagInfo = document.getElementById('orders-pagination-info');
+        const pagUl = document.getElementById('orders-pagination');
+        if (!pagInfo || !pagUl) return;
+
+        if (totalFiltered === 0) {
+            pagInfo.textContent = '';
+            pagUl.innerHTML = '';
+            return;
+        }
+
+        const from = ((currentOrdersPage - 1) * ordersPerPage) + 1;
+        const to = Math.min(currentOrdersPage * ordersPerPage, totalFiltered);
+        pagInfo.textContent = `Showing ${from}–${to} of ${totalFiltered}`;
+
+        let html = `
+          <li class="page-item ${currentOrdersPage <= 1 ? 'disabled' : ''}">
+            <a class="page-link" href="javascript:void(0)" data-orders-page="${currentOrdersPage - 1}">Prev</a>
+          </li>`;
+        for (let i = 1; i <= lastPage; i++) {
+            if (lastPage > 7 && Math.abs(i - currentOrdersPage) > 1 && i !== 1 && i !== lastPage) {
+                if (i === 2 || i === lastPage - 1) {
+                    html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+                }
+                continue;
+            }
+            html += `
+              <li class="page-item ${i === currentOrdersPage ? 'active' : ''}">
+                <a class="page-link" href="javascript:void(0)" data-orders-page="${i}">${i}</a>
+              </li>`;
+        }
+        html += `
+          <li class="page-item ${currentOrdersPage >= lastPage ? 'disabled' : ''}">
+            <a class="page-link" href="javascript:void(0)" data-orders-page="${currentOrdersPage + 1}">Next</a>
+          </li>`;
+        pagUl.innerHTML = html;
+    }
+
     function filterOrders() {
         const q = (document.getElementById('search-orders').value || '').toLowerCase();
         const store = document.getElementById('filter-store').value;
@@ -881,15 +928,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const area = document.getElementById('filter-area').value;
         const slot = document.getElementById('filter-slot').value;
         const driverType = document.getElementById('filter-driver-type').value;
-        let visible = 0;
 
+        const matched = [];
         document.querySelectorAll('.order-row').forEach(row => {
             const views = (row.dataset.views || '').split(',').filter(Boolean);
             const matchSearch = !q || (row.dataset.search || '').includes(q);
             const matchStore = !store || row.dataset.store === store;
-            const matchDelivery = !delivery || 
-                (delivery === 'waiting' 
-                    ? (row.dataset.delivery === 'waiting' || row.dataset.delivery === 'new') 
+            const matchDelivery = !delivery ||
+                (delivery === 'waiting'
+                    ? (row.dataset.delivery === 'waiting' || row.dataset.delivery === 'new')
                     : row.dataset.delivery === delivery);
             const matchPrep = !prep || row.dataset.prep === prep;
             const matchPayment = !payment || row.dataset.payment === payment;
@@ -904,12 +951,35 @@ document.addEventListener('DOMContentLoaded', function () {
                 || views.includes(activeView);
 
             const show = matchSearch && matchStore && matchDelivery && matchPrep && matchPayment && matchArea && matchSlot && matchDriverType && matchView;
-            row.style.display = show ? '' : 'none';
-            if (show) visible++;
+            if (show) matched.push(row);
+            else row.style.display = 'none';
         });
 
-        document.getElementById('orders-count').textContent = visible;
+        const totalFiltered = matched.length;
+        const lastPage = Math.max(1, Math.ceil(totalFiltered / ordersPerPage) || 1);
+        if (currentOrdersPage > lastPage) currentOrdersPage = lastPage;
+        if (currentOrdersPage < 1) currentOrdersPage = 1;
+
+        const startIdx = (currentOrdersPage - 1) * ordersPerPage;
+        const endIdx = startIdx + ordersPerPage;
+
+        matched.forEach((row, idx) => {
+            row.style.display = (idx >= startIdx && idx < endIdx) ? '' : 'none';
+        });
+
+        document.getElementById('orders-count').textContent = totalFiltered;
+        renderOrdersPagination(totalFiltered, lastPage);
     }
+
+    document.getElementById('orders-pagination')?.addEventListener('click', function (e) {
+        const link = e.target.closest('[data-orders-page]');
+        if (!link || link.closest('.disabled')) return;
+        const page = parseInt(link.dataset.ordersPage, 10);
+        if (!page || page === currentOrdersPage) return;
+        currentOrdersPage = page;
+        filterOrders();
+        document.getElementById('orders-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 
     // Selection
     function updateSelectionUI() {

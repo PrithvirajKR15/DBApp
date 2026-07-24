@@ -45,6 +45,11 @@ class StoreSeeder extends Seeder
                 ['code' => $data['code']],
                 array_merge($data, ['user_id' => $admin->id, 'status' => 'active'])
             );
+
+            $store = Store::where('code', $data['code'])->first();
+            if ($store) {
+                $admin->update(['store_id' => $store->id]);
+            }
         }
     }
 }

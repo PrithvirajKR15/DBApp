@@ -435,6 +435,11 @@ $deliveryChipClass = [
 @endforelse
 </div>
 
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 px-1" id="batches-pagination-wrap">
+    <div class="text-muted small" id="batches-pagination-info"></div>
+    <ul class="pagination pagination-sm mb-0" id="batches-pagination"></ul>
+</div>
+
 <!-- Assign / Reassign Modal -->
 <div class="modal fade" id="assignDriverModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -490,6 +495,8 @@ document.addEventListener('DOMContentLoaded', function () {
     let selectedDriverCode = null;
     let moveOrderCode = null;
     let moveFromBatch = null;
+    let currentBatchesPage = 1;
+    const batchesPerPage = 5;
     const assignModal = new bootstrap.Modal(document.getElementById('assignDriverModal'));
     const moveModal = new bootstrap.Modal(document.getElementById('moveOrderModal'));
     const mapInstances = new Map();
@@ -819,19 +826,57 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function renderBatchesPagination(totalFiltered, lastPage) {
+        const pagInfo = document.getElementById('batches-pagination-info');
+        const pagUl = document.getElementById('batches-pagination');
+        if (!pagInfo || !pagUl) return;
+
+        if (totalFiltered === 0) {
+            pagInfo.textContent = '';
+            pagUl.innerHTML = '';
+            return;
+        }
+
+        const from = ((currentBatchesPage - 1) * batchesPerPage) + 1;
+        const to = Math.min(currentBatchesPage * batchesPerPage, totalFiltered);
+        pagInfo.textContent = `Showing ${from}–${to} of ${totalFiltered} groups`;
+
+        let html = `
+          <li class="page-item ${currentBatchesPage <= 1 ? 'disabled' : ''}">
+            <a class="page-link" href="javascript:void(0)" data-batches-page="${currentBatchesPage - 1}">Prev</a>
+          </li>`;
+        for (let i = 1; i <= lastPage; i++) {
+            if (lastPage > 7 && Math.abs(i - currentBatchesPage) > 1 && i !== 1 && i !== lastPage) {
+                if (i === 2 || i === lastPage - 1) {
+                    html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+                }
+                continue;
+            }
+            html += `
+              <li class="page-item ${i === currentBatchesPage ? 'active' : ''}">
+                <a class="page-link" href="javascript:void(0)" data-batches-page="${i}">${i}</a>
+              </li>`;
+        }
+        html += `
+          <li class="page-item ${currentBatchesPage >= lastPage ? 'disabled' : ''}">
+            <a class="page-link" href="javascript:void(0)" data-batches-page="${currentBatchesPage + 1}">Next</a>
+          </li>`;
+        pagUl.innerHTML = html;
+    }
+
     function applyFilters() {
         const q = (document.getElementById('search-batches').value || '').toLowerCase();
         const storeId = document.getElementById('filter-store').value;
         const status = document.querySelector('.batch-tab.active')?.dataset.status || 'current';
         const showCompletedDetails = status === 'completed';
-        let anyVisible = false;
 
         updateTabCounts(storeId);
         syncFilterUrl(storeId, status);
 
+        const matchedGroups = [];
+
         document.querySelectorAll('.store-block').forEach(storeEl => {
             const storeMatch = !storeId || storeEl.dataset.storeId === storeId;
-            let anyGroupVisible = false;
 
             storeEl.querySelectorAll('.group-block').forEach(groupEl => {
                 let anyChildVisible = false;
@@ -844,58 +889,97 @@ document.addEventListener('DOMContentLoaded', function () {
                         || (storeEl.dataset.search || '').includes(q)
                         || (child.dataset.batchId || '').toLowerCase().includes(q);
                     const show = matchStore && matchStatus && matchQ;
-                    child.style.display = show ? '' : 'none';
-
-                    if (show) {
-                        anyChildVisible = true;
-                        if (showCompletedDetails) {
-                            child.classList.add('expanded');
-                            const mapEl = child.querySelector('[id^="batch-map-"]');
-                            if (mapEl) initMap(mapEl, false);
-                        }
-                    } else {
-                        child.classList.remove('expanded');
-                    }
+                    child.dataset.filterMatch = show ? '1' : '0';
+                    if (show) anyChildVisible = true;
                 });
 
                 const groupSearchMatch = !q
                     || (groupEl.dataset.search || '').includes(q)
                     || (storeEl.dataset.search || '').includes(q);
                 const showGroup = storeMatch && anyChildVisible && groupSearchMatch;
-                groupEl.style.display = showGroup ? '' : 'none';
+                groupEl.dataset.filterMatch = showGroup ? '1' : '0';
+                if (showGroup) matchedGroups.push(groupEl);
+            });
+        });
+
+        const totalFiltered = matchedGroups.length;
+        const lastPage = Math.max(1, Math.ceil(totalFiltered / batchesPerPage) || 1);
+        if (currentBatchesPage > lastPage) currentBatchesPage = lastPage;
+        if (currentBatchesPage < 1) currentBatchesPage = 1;
+
+        const startIdx = (currentBatchesPage - 1) * batchesPerPage;
+        const endIdx = startIdx + batchesPerPage;
+        const pageGroupSet = new Set(matchedGroups.slice(startIdx, endIdx));
+
+        let anyVisible = false;
+
+        document.querySelectorAll('.store-block').forEach(storeEl => {
+            let anyGroupVisible = false;
+
+            storeEl.querySelectorAll('.group-block').forEach(groupEl => {
+                const onPage = pageGroupSet.has(groupEl);
+                groupEl.style.display = onPage ? '' : 'none';
+
+                groupEl.querySelectorAll('.child-block').forEach(child => {
+                    const show = onPage && child.dataset.filterMatch === '1';
+                    child.style.display = show ? '' : 'none';
+                    if (show && showCompletedDetails) {
+                        child.classList.add('expanded');
+                        const mapEl = child.querySelector('[id^="batch-map-"]');
+                        if (mapEl) initMap(mapEl, false);
+                    } else if (!show) {
+                        child.classList.remove('expanded');
+                    }
+                });
 
                 const combinedMapWrap = groupEl.querySelector('.group-combined-map')?.closest('.mb-3');
                 if (combinedMapWrap) {
-                    // Combined map is for active route verification, not completed history.
-                    combinedMapWrap.style.display = showGroup && !showCompletedDetails && status !== 'cancelled'
+                    combinedMapWrap.style.display = onPage && !showCompletedDetails && status !== 'cancelled'
                         ? ''
                         : 'none';
                 }
 
-                if (showGroup && showCompletedDetails) {
+                if (onPage && showCompletedDetails) {
                     groupEl.classList.add('expanded');
                 }
 
-                if (showGroup) anyGroupVisible = true;
+                if (onPage) anyGroupVisible = true;
             });
 
-            const showStore = storeMatch && anyGroupVisible;
-            storeEl.style.display = showStore ? '' : 'none';
-            if (showStore) anyVisible = true;
+            storeEl.style.display = anyGroupVisible ? '' : 'none';
+            if (anyGroupVisible) anyVisible = true;
         });
 
         const emptyEl = document.getElementById('filter-empty');
         if (emptyEl) emptyEl.classList.toggle('d-none', anyVisible || !document.querySelector('.store-block'));
+
+        renderBatchesPagination(totalFiltered, lastPage);
     }
 
-    document.getElementById('search-batches').addEventListener('input', applyFilters);
-    document.getElementById('filter-store').addEventListener('change', applyFilters);
+    document.getElementById('search-batches').addEventListener('input', () => {
+        currentBatchesPage = 1;
+        applyFilters();
+    });
+    document.getElementById('filter-store').addEventListener('change', () => {
+        currentBatchesPage = 1;
+        applyFilters();
+    });
     document.querySelectorAll('.batch-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.batch-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
+            currentBatchesPage = 1;
             applyFilters();
         });
+    });
+    document.getElementById('batches-pagination')?.addEventListener('click', (e) => {
+        const link = e.target.closest('[data-batches-page]');
+        if (!link || link.closest('.disabled')) return;
+        const page = parseInt(link.dataset.batchesPage, 10);
+        if (!page || page === currentBatchesPage) return;
+        currentBatchesPage = page;
+        applyFilters();
+        document.getElementById('store-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     applyFilters();
 

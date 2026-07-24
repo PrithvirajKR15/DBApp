@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
-use App\Jobs\DispatchStoreOrdersJob;
+use App\Jobs\BroadcastOrderJob;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -14,6 +15,9 @@ class Order extends Model
      * `delivery` column, which existing pages still read/write).
      */
     public const STATUS_PENDING = 'pending';
+
+    /** Prep complete — third-party broadcast is triggered from this state. */
+    public const STATUS_READY_FOR_PICKUP = 'ready_for_pickup';
 
     public const STATUS_BATCHED = 'batched';
 
@@ -35,6 +39,7 @@ class Order extends Model
 
     protected $fillable = [
         'code',
+        'external_order_id',
         'store_id',
         'driver_id',
         'delivery_batch_id',
@@ -44,12 +49,14 @@ class Order extends Model
         'phone',
         'area',
         'address',
+        'pincode',
         'slot',
         'slot_label',
         'placed_at',
         'urgent',
         'value',
         'items',
+        'line_items',
         'payment',
         'prep',
         'prep_pct',
@@ -58,6 +65,8 @@ class Order extends Model
         'distance_km',
         'lat',
         'lng',
+        'geocoded_at',
+        'geocode_status',
         'views',
         'locality',
         'zone_key',
@@ -72,6 +81,8 @@ class Order extends Model
             'lat' => 'float',
             'lng' => 'float',
             'views' => 'array',
+            'line_items' => 'array',
+            'geocoded_at' => 'datetime',
         ];
     }
 
@@ -95,6 +106,16 @@ class Order extends Model
         return $this->hasMany(BroadcastOffer::class);
     }
 
+    public function detail(): HasOne
+    {
+        return $this->hasOne(OrderDetail::class);
+    }
+
+    public function timelineSteps(): HasMany
+    {
+        return $this->hasMany(OrderTimelineStep::class)->orderBy('sort_order');
+    }
+
     /**
      * A broadcast order is always a single-order delivery and can never be
      * pulled into a multi-order batch, regardless of its current status.
@@ -110,16 +131,21 @@ class Order extends Model
     }
 
     /**
-     * Entry point into the assignment/batching/broadcast flow: every newly
-     * created order for a store gets a dispatch pass queued for that store.
-     * Safe to fire on seeded/historical orders too — dispatchPendingOrders()
-     * only ever acts on orders currently in `pending` status.
+     * Dual-dispatch entry points:
+     * - Store drivers are assigned explicitly by a store manager
+     *   (StoreOrderAssignmentService) or via the existing batching tools.
+     * - Third-party drivers are notified only when status becomes
+     *   READY_FOR_PICKUP (pincode-matched broadcast).
      */
     protected static function booted(): void
     {
-        static::created(function (Order $order) {
-            if ($order->store_id && $order->status === self::STATUS_PENDING) {
-                DispatchStoreOrdersJob::dispatch($order->store);
+        static::updated(function (Order $order) {
+            if (
+                $order->wasChanged('status')
+                && $order->status === self::STATUS_READY_FOR_PICKUP
+                && $order->driver_id === null
+            ) {
+                BroadcastOrderJob::dispatch($order);
             }
         });
     }

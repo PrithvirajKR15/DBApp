@@ -35,86 +35,24 @@ $paymentLabels = [
     'apple' => 'Apple Pay — Paid',
 ];
 
-$detail = [
-    'customer_id' => 'CUS-2048',
-    'vip' => true,
-    'phone_alt' => '+1 555-0199',
-    'avatar' => '6.png',
-    'landmark' => 'Blue gate next to the bakery — use side entrance',
-    'instructions' => 'Ring bell twice, leave at side door if no answer. Fragile items in the order.',
-    'preferred_time' => $order['slot'] . ' ' . ($order['slot_label'] ?? 'Today'),
-    'placed_full' => 'Jul 16, 2026 · ' . $order['placed_at'],
-    'packages' => '3 Bags · 1 Heavy',
-    'distance' => '4.2 km',
-    'eta' => '~18 min',
-    'weight' => '~8.4 kg',
-    'card_last4' => '4321',
-    'order_value' => max($order['value'], 142.50),
-];
-
-$products = [
-    ['name' => 'Organic Bananas', 'category' => 'Fresh Produce', 'sku' => 'PRD-10021', 'qty' => '3', 'unit' => 'bunch', 'price' => 4.50, 'status' => 'Picked', 'icon' => 'bx-leaf'],
-    ['name' => 'Whole Milk', 'category' => 'Dairy', 'sku' => 'PRD-20411', 'qty' => '2', 'unit' => 'gallon', 'price' => 7.98, 'status' => 'Picked', 'icon' => 'bx-coffee'],
-    ['name' => 'Sourdough Loaf', 'category' => 'Bakery', 'sku' => 'PRD-30802', 'qty' => '1', 'unit' => 'loaf', 'price' => 5.49, 'status' => 'Picked', 'icon' => 'bx-basket'],
-    ['name' => 'Free-Range Eggs', 'category' => 'Dairy', 'sku' => 'PRD-20488', 'qty' => '1', 'unit' => 'dozen', 'price' => 6.25, 'status' => 'Picked', 'icon' => 'bx-circle'],
-    ['name' => 'Avocados', 'category' => 'Fresh Produce', 'sku' => 'PRD-10055', 'qty' => '4', 'unit' => 'each', 'price' => 7.60, 'status' => 'Picked', 'icon' => 'bx-leaf'],
-    ['name' => 'Chicken Breast', 'category' => 'Meat', 'sku' => 'PRD-50110', 'qty' => '2', 'unit' => 'lb', 'price' => 14.80, 'status' => 'Picked', 'icon' => 'bx-dish'],
-    ['name' => 'Sparkling Water', 'category' => 'Beverages', 'sku' => 'PRD-70201', 'qty' => '1', 'unit' => 'case', 'price' => 9.99, 'status' => 'Picked', 'icon' => 'bx-droplet'],
-    ['name' => 'Pasta Penne', 'category' => 'Pantry', 'sku' => 'PRD-80344', 'qty' => '2', 'unit' => 'box', 'price' => 3.98, 'status' => 'Picked', 'icon' => 'bx-package'],
-];
-
-$timelineSteps = [
-    ['key' => 'placed', 'label' => 'Order Placed', 'time' => $order['placed_at'], 'done' => true],
-    ['key' => 'picking', 'label' => 'Picking Products', 'time' => '08:28 AM', 'done' => true],
-    ['key' => 'packing', 'label' => 'Packing', 'time' => '08:45 AM', 'done' => in_array($order['prep'], ['packing', 'ready'])],
-    ['key' => 'ready', 'label' => 'Ready for Pickup', 'time' => $order['prep'] === 'ready' ? '09:02 AM' : null, 'done' => $order['prep'] === 'ready', 'current' => $order['prep'] === 'ready' && in_array($order['delivery'], ['new', 'waiting', 'ready'])],
-    ['key' => 'assigned', 'label' => 'Driver Assigned', 'time' => $order['driver'] ? '—' : null, 'done' => (bool) $order['driver'] || in_array($order['delivery'], ['assigned', 'accepted', 'out', 'delivered'])],
-    ['key' => 'picked_up', 'label' => 'Picked Up', 'time' => null, 'done' => in_array($order['delivery'], ['out', 'delivered'])],
-    ['key' => 'out', 'label' => 'Out for Delivery', 'time' => null, 'done' => in_array($order['delivery'], ['out', 'delivered']), 'current' => $order['delivery'] === 'out'],
-    ['key' => 'delivered', 'label' => 'Delivered', 'time' => null, 'done' => $order['delivery'] === 'delivered', 'current' => $order['delivery'] === 'delivered'],
-];
-
-// Mark current step if none set
-$hasCurrent = collect($timelineSteps)->contains(fn ($s) => !empty($s['current']));
-if (!$hasCurrent) {
-    foreach ($timelineSteps as $i => $step) {
-        if (!$step['done']) {
-            $timelineSteps[$i]['current'] = true;
-            break;
-        }
-    }
-}
+$detail = $order['detail'] ?? [];
+$products = $order['products'] ?? [];
+$timelineSteps = $order['timeline'] ?? [];
 
 $hasDriver = !empty($order['driver']);
 $canAssign = !$hasDriver && in_array($order['delivery'], ['new', 'waiting', 'ready', 'accepted']);
 $canBroadcast = $canAssign;
 
-$areaCoords = [
-    'North Zone' => [8.5241, 76.9366],
-    'Central Zone' => [8.5089, 76.9652],
-    'West Zone' => [8.5235, 76.9280],
-    'East Zone' => [8.5580, 76.8810],
-    'South Zone' => [8.4830, 76.9475],
-    'Pattom' => [8.5241, 76.9366],
-    'Kesavadasapuram' => [8.5360, 76.9360],
-    'Ulloor' => [8.5370, 76.9250],
-    'Murinjapalam' => [8.5300, 76.9450],
-    'Kowdiar' => [8.5089, 76.9652],
-    'Palayam' => [8.5065, 76.9540],
-    'Thampanoor' => [8.4870, 76.9520],
-    'Vellayambalam' => [8.5100, 76.9600],
-    'Statue' => [8.4875, 76.9525],
-    'Sasthamangalam' => [8.5156, 76.9721],
-    'Technopark' => [8.5580, 76.8810],
-    'Peroorkada' => [8.5450, 76.9650],
-    'Medical College' => [8.5235, 76.9280],
-    'Kazhakkoottam' => [8.5680, 76.8700],
-    'East Fort' => [8.4830, 76.9475],
-    'Vizhinjam' => [8.3780, 76.9910],
-    'Kovalam' => [8.4000, 76.9780],
+$map = $order['map'] ?? null;
+$defaultCenter = \App\Services\ZoneCoverageService::DEFAULT_MAP_CENTER;
+$mapLatLng = [
+    (float) ($map['lat'] ?? $order['lat'] ?? $defaultCenter[0]),
+    (float) ($map['lng'] ?? $order['lng'] ?? $defaultCenter[1]),
 ];
-$mapLatLng = $areaCoords[$order['area']] ?? [8.5241, 76.9366];
-$storeLatLng = [$mapLatLng[0] + 0.012, $mapLatLng[1] - 0.008];
+$storeLatLng = [
+    (float) ($map['store_lat'] ?? ($mapLatLng[0] + 0.012)),
+    (float) ($map['store_lng'] ?? ($mapLatLng[1] - 0.008)),
+];
 $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $mapLatLng[1] . '#map=15/' . $mapLatLng[0] . '/' . $mapLatLng[1];
 @endphp
 
@@ -428,7 +366,7 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
                 <div class="d-flex flex-wrap gap-3 text-muted" style="font-size: 0.88rem;">
                     <span><i class="bx bx-time-five"></i> {{ $order['slot'] }} {{ $order['slot_label'] ?? '' }}</span>
                     <span><i class="bx bx-store"></i> {{ $order['store'] }}</span>
-                    <span><i class="bx bx-calendar"></i> {{ $detail['placed_full'] }}</span>
+                    <span><i class="bx bx-calendar"></i> {{ $detail['placed_full'] ?? $order['placed_at'] }}</span>
                 </div>
             </div>
         </div>
@@ -443,16 +381,18 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
                 <div class="customer-hero mb-3">
                     <div class="d-flex align-items-center gap-3">
                         <div class="avatar" style="width: 52px; height: 52px;">
-                            <img src="{{ asset('assets/img/avatars/'.$detail['avatar']) }}" class="rounded-circle" alt="">
+                            <img src="{{ asset('assets/img/avatars/'.($detail['avatar'] ?? '1.png')) }}" class="rounded-circle" alt="">
                         </div>
                         <div>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="fw-bold text-body">{{ $order['customer'] }}</span>
-                                @if ($detail['vip'])
+                                @if (!empty($detail['vip']))
                                 <span class="vip-badge">VIP</span>
                                 @endif
                             </div>
+                            @if (!empty($detail['customer_id']))
                             <small class="text-muted">{{ $detail['customer_id'] }}</small>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -462,8 +402,9 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
                         <small class="text-muted fw-semibold text-uppercase" style="letter-spacing: 0.4px; font-size: 0.7rem;">Mobile</small>
                         <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" style="border-radius: 6px; font-size: 0.75rem;"><i class="bx bx-phone"></i> Call</button>
                     </div>
-                    <div class="fw-semibold text-body">{{ $order['phone'] }}</div>
+                    <div class="fw-semibold text-body">{{ $order['phone'] ?? '—' }}</div>
                 </div>
+                @if (!empty($detail['phone_alt']))
                 <div class="mb-3">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <small class="text-muted fw-semibold text-uppercase" style="letter-spacing: 0.4px; font-size: 0.7rem;">Alternate</small>
@@ -471,21 +412,26 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
                     </div>
                     <div class="fw-semibold text-body">{{ $detail['phone_alt'] }}</div>
                 </div>
+                @endif
 
                 <hr>
                 <h6 class="fw-bold text-body mb-2">Delivery Address</h6>
                 <p class="mb-1 text-body" style="font-size: 0.9rem;">{{ $order['address'] }}</p>
                 <small class="text-muted d-block mb-2"><i class="bx bx-map-pin"></i> {{ $order['area'] }}</small>
+                @if (!empty($detail['landmark']))
                 <small class="text-muted d-block mb-3"><strong>Landmark:</strong> {{ $detail['landmark'] }}</small>
+                @endif
                 <a href="#delivery-map-section" class="btn btn-sm btn-outline-secondary w-100 mb-3" style="border-radius: 8px; border-color: #e0e2e7; color: #566a7f;">
                     <i class="bx bx-map me-1" style="color: #ff7a00;"></i>View location on map below
                 </a>
 
+                @if (!empty($detail['instructions']))
                 <h6 class="fw-bold text-body mb-2">Delivery Instructions</h6>
                 <div class="instructions-box mb-3">{{ $detail['instructions'] }}</div>
+                @endif
 
                 <h6 class="fw-bold text-body mb-1">Preferred Time</h6>
-                <p class="text-muted mb-3" style="font-size: 0.9rem;"><i class="bx bx-time"></i> {{ $detail['preferred_time'] }}</p>
+                <p class="text-muted mb-3" style="font-size: 0.9rem;"><i class="bx bx-time"></i> {{ $detail['preferred_time'] ?? '—' }}</p>
 
                 <div class="d-grid gap-2">
                     <button type="button" class="btn btn-outline-secondary" style="border-radius: 8px;" {{ !in_array($order['delivery'], ['out', 'assigned', 'accepted']) ? 'disabled' : '' }}>
@@ -505,14 +451,14 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
             <div class="col-md-4">
                 <div class="summary-tile">
                     <small class="text-muted text-uppercase fw-semibold d-block" style="font-size: 0.7rem;">Order Value</small>
-                    <div class="fw-bold mt-1" style="font-size: 1.35rem; color: #28c76f;">${{ number_format($detail['order_value'], 2) }}</div>
+                    <div class="fw-bold mt-1" style="font-size: 1.35rem; color: #28c76f;">${{ number_format((float) ($detail['order_value'] ?? $order['value'] ?? 0), 2) }}</div>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="summary-tile">
                     <small class="text-muted text-uppercase fw-semibold d-block" style="font-size: 0.7rem;">Payment</small>
                     <div class="fw-bold text-body mt-1" style="font-size: 0.95rem;">{{ $paymentLabels[$order['payment']] ?? $order['payment'] }}</div>
-                    @if ($order['payment'] === 'online')
+                    @if ($order['payment'] === 'online' && !empty($detail['card_last4']))
                     <small class="text-muted">Visa ···· {{ $detail['card_last4'] }}</small>
                     @endif
                 </div>
@@ -520,7 +466,7 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
             <div class="col-md-4">
                 <div class="summary-tile">
                     <small class="text-muted text-uppercase fw-semibold d-block" style="font-size: 0.7rem;">Packages</small>
-                    <div class="fw-bold text-body mt-1" style="font-size: 0.95rem;">{{ $detail['packages'] }}</div>
+                    <div class="fw-bold text-body mt-1" style="font-size: 0.95rem;">{{ $detail['packages'] ?? '—' }}</div>
                     <small class="text-muted">{{ $order['items'] }} line items</small>
                 </div>
             </div>
@@ -529,7 +475,10 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
         <div class="detail-card">
             <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
                 <h6 class="mb-0 fw-bold text-body">Ordered Products</h6>
+                @php $allPicked = count($products) > 0 && collect($products)->every(fn ($p) => ($p['status'] ?? '') === 'Picked'); @endphp
+                @if ($allPicked)
                 <span class="picked-badge"><i class="bx bx-check-circle"></i> All Picked</span>
+                @endif
             </div>
             <div class="table-responsive">
                 <table class="table table-hover mb-0" id="products-table">
@@ -544,30 +493,36 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($products as $p)
+                        @forelse ($products as $p)
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
-                                    <div class="product-thumb"><i class="bx {{ $p['icon'] }}"></i></div>
+                                    <div class="product-thumb"><i class="bx {{ $p['icon'] ?? 'bx-package' }}"></i></div>
                                     <div>
                                         <div class="fw-semibold text-body" style="font-size: 0.88rem;">{{ $p['name'] }}</div>
+                                        @if (!empty($p['category']))
                                         <small class="text-muted">{{ $p['category'] }}</small>
+                                        @endif
                                     </div>
                                 </div>
                             </td>
                             <td class="text-muted" style="font-size: 0.85rem;">{{ $p['sku'] }}</td>
                             <td class="fw-semibold">{{ $p['qty'] }}</td>
                             <td class="text-muted">{{ $p['unit'] }}</td>
-                            <td class="fw-semibold">${{ number_format($p['price'], 2) }}</td>
+                            <td class="fw-semibold">${{ number_format((float) $p['price'], 2) }}</td>
                             <td><span class="picked-badge"><i class="bx bx-check"></i> {{ $p['status'] }}</span></td>
                         </tr>
-                        @endforeach
+                        @empty
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No products on this order.</td>
+                        </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
             <div class="p-3 border-top d-flex align-items-center justify-content-between">
                 <span class="text-muted fw-semibold">Order Total</span>
-                <span class="fw-bold text-body" style="font-size: 1.15rem;">${{ number_format($detail['order_value'], 2) }}</span>
+                <span class="fw-bold text-body" style="font-size: 1.15rem;">${{ number_format((float) ($detail['order_value'] ?? $order['value'] ?? 0), 2) }}</span>
             </div>
         </div>
     </div>
@@ -619,13 +574,13 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
                         <span class="text-muted">Slot</span><span class="fw-semibold text-body">{{ $order['slot'] }}</span>
                     </div>
                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.88rem;">
-                        <span class="text-muted">Distance</span><span class="fw-semibold text-body">{{ $detail['distance'] }}</span>
+                        <span class="text-muted">Distance</span><span class="fw-semibold text-body">{{ $detail['distance'] ?? '—' }}</span>
                     </div>
                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.88rem;">
-                        <span class="text-muted">Est. Time</span><span class="fw-semibold text-body">{{ $detail['eta'] }}</span>
+                        <span class="text-muted">Est. Time</span><span class="fw-semibold text-body">{{ $detail['eta'] ?? $order['eta'] ?? '—' }}</span>
                     </div>
                     <div class="d-flex justify-content-between" style="font-size: 0.88rem;">
-                        <span class="text-muted">Weight</span><span class="fw-semibold text-body">{{ $detail['weight'] }}</span>
+                        <span class="text-muted">Weight</span><span class="fw-semibold text-body">{{ $detail['weight'] ?? '—' }}</span>
                     </div>
                 </div>
             </div>
@@ -635,7 +590,7 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
             <div class="p-3">
                 <h6 class="fw-bold text-body mb-3">Activity Timeline</h6>
                 <ul class="timeline">
-                    @foreach ($timelineSteps as $step)
+                    @forelse ($timelineSteps as $step)
                     <li class="timeline-item {{ !empty($step['done']) ? 'done' : '' }} {{ !empty($step['current']) ? 'current' : '' }}">
                         <div class="timeline-dot"></div>
                         <div class="fw-semibold text-body" style="font-size: 0.9rem;">{{ $step['label'] }}</div>
@@ -647,7 +602,13 @@ $mapsUrl = 'https://www.openstreetmap.org/?mlat=' . $mapLatLng[0] . '&mlon=' . $
                         <small class="text-muted">Pending</small>
                         @endif
                     </li>
-                    @endforeach
+                    @empty
+                    <li class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="fw-semibold text-body" style="font-size: 0.9rem;">No timeline yet</div>
+                        <small class="text-muted">Steps will appear as the order progresses.</small>
+                    </li>
+                    @endforelse
                 </ul>
             </div>
         </div>

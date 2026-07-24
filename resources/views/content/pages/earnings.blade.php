@@ -4,6 +4,7 @@
 @section('page-title', 'Earnings')
 
 @php
+    $isNavbar = false;
     $data = $data ?? [];
     $metrics = $data['metrics'] ?? [];
     $orderEarnings = $data['order_earnings'] ?? [];

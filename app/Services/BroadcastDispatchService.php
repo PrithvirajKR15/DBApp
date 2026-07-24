@@ -8,6 +8,7 @@ use App\Models\BatchSetting;
 use App\Models\BroadcastOffer;
 use App\Models\Driver;
 use App\Models\Order;
+use App\Models\ZonePincode;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +16,13 @@ use Illuminate\Validation\ValidationException;
 /**
  * Fallback path: notifies eligible third-party drivers of a single-order
  * delivery and handles the race-condition-safe "first to accept wins" flow.
+ *
+ * Eligibility (in order):
+ * 1. type = THIRD_PARTY, dispatch_status = IDLE
+ * 2. Driver's zone / service_areas covers a zone that owns order.pincode
+ *    (drivers pick areas, not raw pincodes)
+ * 3. Legacy geo-radius fallback when the order has no pincode, or when
+ *    zone_pincodes has not been configured yet
  *
  * Broadcast orders are permanently single-order — once assignment_type is
  * set to 'broadcast' it never changes, and Order::canBeBatched() will
@@ -24,7 +32,8 @@ use Illuminate\Validation\ValidationException;
 class BroadcastDispatchService
 {
     public function __construct(
-        protected BatchRouteOptimizerService $geo
+        protected BatchRouteOptimizerService $geo,
+        protected OrderTimelineService $timeline
     ) {}
 
     public function broadcast(Order $order): void
@@ -32,6 +41,10 @@ class BroadcastDispatchService
         // Defensive: a store-batched order must never reach the broadcast
         // path. This should be unreachable given upstream checks.
         if ($order->assignment_type === Order::ASSIGNMENT_STORE_BATCH) {
+            return;
+        }
+
+        if ($order->driver_id !== null) {
             return;
         }
 
@@ -47,9 +60,9 @@ class BroadcastDispatchService
         $eligibleDrivers = $this->eligibleDrivers($order, $radiusKm);
 
         if ($eligibleDrivers->isEmpty()) {
-            // No one to notify right now (all offline, or none in range).
-            // Leave it broadcasting — the offer-expiry job retries this
-            // periodically against whichever drivers are online then.
+            // No one to notify right now (all offline, or none covering the
+            // pincode). Leave it broadcasting — the offer-expiry job retries
+            // periodically against whichever drivers are idle then.
             return;
         }
 
@@ -129,6 +142,11 @@ class BroadcastDispatchService
                 'delivery' => 'assigned',
             ]);
 
+            Driver::where('id', $offer->driver_id)->update([
+                'dispatch_status' => Driver::DISPATCH_BUSY,
+                'availability' => 'Transit',
+            ]);
+
             $siblingOffers = BroadcastOffer::where('order_id', $order->id)
                 ->where('id', '!=', $offer->id)
                 ->where('status', BroadcastOffer::STATUS_PENDING)
@@ -139,8 +157,34 @@ class BroadcastDispatchService
 
             $siblingOffers->each(fn (BroadcastOffer $sibling) => BroadcastOfferWithdrawn::dispatch($sibling));
 
-            return $order->fresh();
+            $fresh = $order->fresh();
+            $this->timeline->syncFromOrderState($fresh, [
+                \App\Models\OrderTimelineStep::KEY_ASSIGNED => now()->format('h:i A'),
+            ]);
+
+            return $fresh;
         });
+    }
+
+    /**
+     * Accept by order id for the authenticated driver who holds a pending
+     * offer. Same row-lock semantics as acceptOffer().
+     */
+    public function acceptOrder(Order $order, Driver $driver): Order
+    {
+        $offer = BroadcastOffer::where('order_id', $order->id)
+            ->where('driver_id', $driver->id)
+            ->where('status', BroadcastOffer::STATUS_PENDING)
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (! $offer) {
+            throw ValidationException::withMessages([
+                'order' => 'No pending offer for this order.',
+            ]);
+        }
+
+        return $this->acceptOffer($offer, $driver);
     }
 
     /**
@@ -162,7 +206,7 @@ class BroadcastDispatchService
 
         $stale->each(fn (BroadcastOffer $offer) => BroadcastOfferWithdrawn::dispatch($offer));
 
-        Order::where('status', Order::STATUS_BROADCASTING)
+        Order::whereIn('status', [Order::STATUS_BROADCASTING, Order::STATUS_READY_FOR_PICKUP])
             ->whereNull('driver_id')
             ->whereDoesntHave('broadcastOffers', fn ($q) => $q->where('status', BroadcastOffer::STATUS_PENDING))
             ->get()
@@ -174,10 +218,26 @@ class BroadcastDispatchService
      */
     protected function eligibleDrivers(Order $order, float $radiusKm): Collection
     {
-        $drivers = Driver::query()
+        $base = Driver::query()
             ->availableForBroadcast()
-            ->with(['user', 'latestLocation'])
-            ->get();
+            ->with(['user', 'latestLocation', 'activeAssignment.zone']);
+
+        // Preferred path: order.pincode → zone_pincodes → drivers on those zones.
+        if ($order->pincode) {
+            $byZone = (clone $base)->servingPincode($order->pincode)->get();
+
+            if ($byZone->isNotEmpty()) {
+                return $byZone;
+            }
+
+            // If zone↔pincode maps exist but nobody covers this pin, do not
+            // spam the whole city. Only fall back to geo when the map is empty.
+            if (ZonePincode::query()->exists()) {
+                return collect();
+            }
+        }
+
+        $drivers = $base->get();
 
         if ($order->lat === null || $order->lng === null || $drivers->isEmpty()) {
             return $drivers;

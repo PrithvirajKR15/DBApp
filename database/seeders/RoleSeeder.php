@@ -31,6 +31,12 @@ class RoleSeeder extends Seeder
         'home_route' => 'user-dashboard',
         'is_system' => true,
       ],
+      [
+        'slug' => 'executive',
+        'name' => 'Executive',
+        'home_route' => 'executive-dashboard',
+        'is_system' => true,
+      ],
     ];
 
     foreach ($roles as $role) {

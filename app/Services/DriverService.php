@@ -39,6 +39,8 @@ class DriverService
 
             $driver = $this->createDriverProfile($user, $data, [
                 'driver_type' => Driver::TYPE_STORE,
+                'store_id' => $data['store_id'],
+                'dispatch_status' => Driver::DISPATCH_IDLE,
             ]);
 
             DriverAssignment::create([
@@ -81,6 +83,8 @@ class DriverService
                 ]);
             }
 
+            $driver->update(['store_id' => $data['store_id']]);
+
             $this->storeDocuments($driver, $documents, replaceExisting: true);
 
             return $driver->fresh(['user', 'activeAssignment.store', 'orders']);
@@ -111,11 +115,17 @@ class DriverService
      */
     public function listZoneDrivers(): Collection
     {
-        return Driver::zoneDrivers()
-            ->with(['user', 'activeAssignment.zone', 'orders'])
-            ->whereHas('user', fn ($q) => $q->whereIn('status', ['Active', 'Suspended']))
-            ->get()
-            ->map(fn (Driver $driver) => $this->shapeZoneDriver($driver));
+        $query = Driver::zoneDrivers()
+            ->with(['user', 'activeAssignment.zone', 'agencyBranch.agency', 'orders'])
+            ->whereHas('user', fn ($q) => $q->whereIn('status', ['Active', 'Suspended']));
+
+        $user = auth()->user();
+        if ($user?->isExecutive()) {
+            $branchIds = app(AgencyService::class)->executiveBranchIds($user);
+            $query->whereIn('agency_branch_id', $branchIds ?: [0]);
+        }
+
+        return $query->get()->map(fn (Driver $driver) => $this->shapeZoneDriver($driver));
     }
 
     /**
@@ -129,9 +139,14 @@ class DriverService
 
             $driver = $this->createDriverProfile($user, $data, [
                 'driver_type' => Driver::TYPE_THIRD_PARTY,
+                'dispatch_status' => Driver::DISPATCH_IDLE,
                 'partner_type' => $data['partner_type'] ?? 'independent',
-                'agency_name' => $data['agency_name'] ?? null,
-                'agency_id' => $data['agency_id'] ?? null,
+                'agency_branch_id' => ($data['partner_type'] ?? '') === 'third-party'
+                    ? ($data['agency_branch_id'] ?? null)
+                    : null,
+                'agency_registration_number' => ($data['partner_type'] ?? '') === 'third-party'
+                    ? ($data['agency_registration_number'] ?? null)
+                    : null,
                 'service_areas' => $this->normalizeServiceAreas($data['zone_id'], $data['service_areas'] ?? []),
             ]);
 
@@ -170,8 +185,12 @@ class DriverService
                 'shift' => $data['shift'] ?? null,
                 'working_days' => $data['working_days'] ?? null,
                 'partner_type' => $data['partner_type'] ?? 'independent',
-                'agency_name' => $data['agency_name'] ?? null,
-                'agency_id' => $data['agency_id'] ?? null,
+                'agency_branch_id' => ($data['partner_type'] ?? '') === 'third-party'
+                    ? ($data['agency_branch_id'] ?? null)
+                    : null,
+                'agency_registration_number' => ($data['partner_type'] ?? '') === 'third-party'
+                    ? ($data['agency_registration_number'] ?? null)
+                    : null,
                 'service_areas' => $this->normalizeServiceAreas($data['zone_id'], $data['service_areas'] ?? []),
                 'availability' => $data['availability'] ?? $driver->availability ?? 'Offline',
             ]);
@@ -216,7 +235,13 @@ class DriverService
     {
         return Driver::query()
             ->whereHas('user', fn ($q) => $q->where('code', $code))
-            ->with(['user', 'activeAssignment.store', 'activeAssignment.zone', 'orders'])
+            ->with([
+                'user',
+                'activeAssignment.store',
+                'activeAssignment.zone',
+                'agencyBranch.agency',
+                'orders',
+            ])
             ->firstOrFail();
     }
 
@@ -395,6 +420,7 @@ class DriverService
      */
     public function shapeZoneDriver(Driver $driver): array
     {
+        $driver->loadMissing(['user', 'activeAssignment.zone', 'agencyBranch.agency']);
         $user = $driver->user;
         $zone = $driver->activeAssignment?->zone;
         $joinedAt = $driver->joined_at ?? $user?->created_at;
@@ -408,8 +434,11 @@ class DriverService
             'zone_id' => $zone?->id,
             'zone_code' => $zone?->code,
             'partner_type' => $driver->partner_type ?? 'independent',
-            'agency_name' => $driver->agency_name,
-            'agency_id' => $driver->agency_id,
+            'agency_branch_id' => $driver->agency_branch_id,
+            'agency_id' => $driver->agencyBranch?->agency_id,
+            'agency_name' => $driver->agencyBranch?->agency?->name ?? $driver->agencyBranch?->name,
+            'agency_hub_name' => $driver->agencyBranch?->name,
+            'agency_registration_number' => $driver->agency_registration_number,
             'service_areas' => $this->normalizeLegacyServiceAreas($driver->service_areas ?? []),
         ]);
     }

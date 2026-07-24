@@ -1163,7 +1163,6 @@ function loadUsers(page = 1) {
                         <i class="bx ${user.status === 'Active' ? 'bx-user-x' : 'bx-user-check'}"></i>
 
                     </button>
-                    <pre>${user.status}</pre>
 
                 </div>
             </td>

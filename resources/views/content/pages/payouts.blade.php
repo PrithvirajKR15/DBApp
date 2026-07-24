@@ -4,6 +4,7 @@
 @section('page-title', 'Payouts')
 
 @php
+    $isNavbar = false;
     $data = $data ?? [];
     $metrics = $data['metrics'] ?? [];
     $drivers = $data['drivers'] ?? [];

@@ -5,6 +5,9 @@ namespace App\Http\Controllers\pages;
 use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\Order;
+use App\Models\Zone;
+use App\Services\ZoneCoverageService;
+use Carbon\Carbon;
 
 class LiveMapController extends Controller
 {
@@ -14,13 +17,11 @@ class LiveMapController extends Controller
      */
     public function index()
     {
-        $order = ['Transit' => 0, 'Idle' => 1, 'Offline' => 2];
-
         $drivers = Driver::onMap()
             ->with(['user', 'latestLocation', 'currentOrder', 'activeAssignment.zone'])
+            ->orderByRaw("CASE availability WHEN 'Transit' THEN 0 WHEN 'Online' THEN 1 WHEN 'Offline' THEN 2 ELSE 3 END")
             ->get()
             ->map(fn (Driver $d) => $this->shapeDriver($d))
-            ->sortBy(fn ($d) => $order[$d['status']] ?? 3)
             ->values();
 
         $transit = $drivers->where('status', 'Transit')->count();
@@ -37,32 +38,66 @@ class LiveMapController extends Controller
             'offline' => $offline,
             'total' => $drivers->count(),
             'active' => $transit + $idle,
-            'orders_today' => Order::count(),
+            'orders_today' => Order::where('placed_at', Carbon::today())->count(),
             'avg_eta' => $etas->count() ? (int) round($etas->avg()) : 0,
         ];
+
+        $zones = Zone::query()
+            ->whereNotNull('lat')
+            ->whereNotNull('lng')
+            ->orderBy('region')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'region', 'lat', 'lng'])
+            ->map(fn (Zone $z) => [
+                'id' => $z->id,
+                'code' => $z->code,
+                'name' => $z->name,
+                'region' => $z->region,
+                'lat' => (float) $z->lat,
+                'lng' => (float) $z->lng,
+            ])
+            ->values();
+
+        [$centerLat, $centerLng] = ZoneCoverageService::DEFAULT_MAP_CENTER;
+        if ($zones->isNotEmpty()) {
+            $centerLat = (float) $zones->avg('lat');
+            $centerLng = (float) $zones->avg('lng');
+        }
 
         return view('content.pages.live-map', [
             'drivers' => $drivers,
             'stats' => $stats,
+            'zones' => $zones,
+            'zoneRadiusMeters' => config('services.zone_radius_meters'),
+            'mapCenter' => ['lat' => $centerLat, 'lng' => $centerLng],
             'googleMapsKey' => config('services.google.maps_key'),
         ]);
     }
 
     /**
      * Convert a Driver model into the array structure used by the map JS.
+     *
+     * Status comes from drivers.availability (Online / Offline / Transit).
+     * Online is presented as Idle on the map.
      */
     private function shapeDriver(Driver $d): array
     {
         $location = $d->latestLocation;
         $zone = $d->activeAssignment?->zone;
-        $status = $location?->live_status ?: 'Offline';
+        $status = match ($d->availability) {
+            'Transit' => 'Transit',
+            'Online' => 'Idle',
+            default => 'Offline',
+        };
 
         $base = [
             'id' => $d->id,
             'name' => $d->name,
             'status' => $status,
             'statusClass' => strtolower($status),
-            'zone' => $zone?->region ?? 'central',
+            'zone' => $zone?->code ?? '',
+            'zoneName' => $zone?->name ?? '',
+            'region' => $zone?->region ?? '',
             'image' => $d->image ?? '1.png',
             'lat' => (float) ($location?->lat ?? 0),
             'lng' => (float) ($location?->lng ?? 0),

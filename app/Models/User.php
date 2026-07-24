@@ -95,6 +95,16 @@ class User extends Authenticatable
         return $this->belongsTo(Store::class);
     }
 
+    public function agencyExecutive(): HasOne
+    {
+        return $this->hasOne(AgencyExecutive::class);
+    }
+
+    public function createdAgencies(): HasMany
+    {
+        return $this->hasMany(Agency::class, 'created_by');
+    }
+
     /**
      * Check if user has any of the given role slugs.
      */
@@ -111,6 +121,11 @@ class User extends Authenticatable
     public function isStoreAdmin(): bool
     {
         return $this->hasRole('store_admin');
+    }
+
+    public function isExecutive(): bool
+    {
+        return $this->hasRole('executive');
     }
 
     public function isUser(): bool

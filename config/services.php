@@ -37,6 +37,18 @@ return [
 
     'google' => [
         'maps_key' => env('GOOGLE_MAPS_API_KEY'),
+        'geocoding_key' => env('GOOGLE_GEOCODING_API_KEY', env('GOOGLE_MAPS_API_KEY')),
+        // Set GEOCODING_ENABLED=false in tests/CI to skip live Google calls.
+        'geocoding_enabled' => env('GEOCODING_ENABLED', true),
+        // When Google is disabled, invent stable coords so local ingest still works.
+        'geocoding_fallback' => env('GEOCODING_FALLBACK', true),
     ],
+
+    'partner' => [
+        // Shared secret for POST /api/v1/orders/sync and /api/v1/stores/sync.
+        'api_token' => env('PARTNER_API_TOKEN'),
+    ],
+
+    'zone_radius_meters' => env('ZONE_RADIUS_METERS', 4000),
 
 ];
