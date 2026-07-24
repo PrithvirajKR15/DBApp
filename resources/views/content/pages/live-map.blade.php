@@ -204,7 +204,11 @@ $container = 'container-fluid';
         margin-top: 2px;
     }
 
-    /* Custom Map Markers (Google Maps OverlayView) */
+    /* Custom Map Markers (Google Maps OverlayView)
+       Must be position:absolute so left/top from draw() are relative to the
+       overlay pane origin — relative positioning stacks markers in document
+       flow and makes them drift during zoom. Prefer margin over transform
+       so Google Maps' pane transforms during zoom don't compound. */
     .gm-driver-marker {
         display: flex;
         align-items: center;
@@ -215,9 +219,10 @@ $container = 'container-fluid';
         background: #ffffff;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.16);
         border: 3px solid #696cff;
-        position: relative;
+        position: absolute;
         cursor: pointer;
-        transform: translate(-50%, -100%);
+        margin-left: -21px;
+        margin-top: -42px;
     }
 
     .gm-driver-marker.transit {
